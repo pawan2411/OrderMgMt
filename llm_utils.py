@@ -83,50 +83,47 @@ def route_query(user_input):
 
 def extract_all_mentioned_attributes(user_input, attribute_schema, conversation_history="", expected_key=None):
     """
-    Extracts process information from user response.
-    Uses 3-conversation rolling window for context.
+    Extracts ALL process information from user response.
+    Captures multiple attributes if user provides rich answers.
     """
+    from attribute_schema import QUESTION_FLOW
     
-    # Build focused extraction based on what we're asking
-    if expected_key and expected_key in attribute_schema:
-        attr_info = attribute_schema[expected_key]
-        examples = attr_info.get("examples", [])
-        question = attr_info.get("question", "")
-        
-        system_prompt = (
-            f"Extract the answer to this question from the user's response.\n\n"
-            f"Question asked: {question}\n"
-            f"Attribute key: {expected_key}\n"
-            f"Example valid answers: {', '.join(examples[:3]) if examples else 'Any value'}\n\n"
-            "IMPORTANT RULES:\n"
-            "1. Even SHORT answers are valid (e.g., 'online', 'EDI', 'email')\n"
-            "2. If the user gives a brief answer, use it as-is\n"
-            "3. Return valid JSON: {\"" + expected_key + "\": \"extracted value\"}\n"
-            "4. Only return {} if they completely ignored the question\n\n"
-            "Example: If asked 'How do orders come in?' and user says 'online', return:\n"
-            "{\"" + expected_key + "\": \"Online\"}"
-        )
-    else:
-        # Broad extraction - look for any attribute
-        attr_list = []
-        for key, info in attribute_schema.items():
-            if info.get("type") == "M" and info.get("question"):
-                examples = info.get("examples", [])
-                attr_list.append(f"- {key}: {examples[0] if examples else 'process description'}")
-        
-        system_prompt = (
-            "Extract any process information from the user's response.\n\n"
-            f"Possible attributes:\n" + "\n".join(attr_list[:15]) + "\n\n"
-            "Rules:\n"
-            "1. Extract what the user mentions, even if brief\n"
-            "2. Return valid JSON\n"
-            "3. If nothing found, return {}\n"
-        )
+    # Build list of ALL attributes we might find (focus on unanswered ones)
+    attr_list = []
+    for q in QUESTION_FLOW:
+        if q["type"] == "M" and q.get("question"):
+            key = q["key"]
+            examples = q.get("examples", [])
+            attr_list.append({
+                "key": key,
+                "question": q["question"],
+                "examples": examples[:2]
+            })
     
-    # Build context with last 3 Q&A pairs (rolling window)
+    # Build the extraction prompt to find ALL mentioned attributes
+    attr_descriptions = "\n".join([
+        f"- {a['key']}: {a['question'][:50]}... (e.g., {', '.join(a['examples'][:2]) if a['examples'] else 'any value'})"
+        for a in attr_list[:20]
+    ])
+    
+    system_prompt = (
+        "You are extracting ORDER PROCESS information from a client interview.\n"
+        "The user may mention MULTIPLE things in one response. Extract ALL that apply.\n\n"
+        f"ATTRIBUTES TO LOOK FOR:\n{attr_descriptions}\n\n"
+        "RULES:\n"
+        "1. Extract EVERY attribute the user mentions, not just one\n"
+        "2. Even brief mentions count (e.g., 'PDF' → manual_intake_method: 'PDF')\n"
+        "3. If they mention 'EDI, portal, and email/PDF' - that answers MULTIPLE questions\n"
+        "4. Return valid JSON with ALL found attributes\n"
+        "5. If nothing found, return {}\n\n"
+        "EXAMPLE: If user says 'We get orders via EDI from retailers and signed PDFs from email'\n"
+        "Return: {\"order_origin_channels\": \"EDI from retailers, email with signed PDFs\", "
+        "\"manual_intake_method\": \"Email with signed PDF attachments\"}"
+    )
+    
+    # Build context with conversation history
     user_message = user_input
     if conversation_history:
-        # Show context so LLM understands what the answer refers to
         user_message = f"CONVERSATION CONTEXT:\n{conversation_history}\n\nUSER'S LATEST ANSWER: {user_input}"
     else:
         user_message = f"USER'S ANSWER: {user_input}"
