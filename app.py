@@ -30,27 +30,24 @@ with st.sidebar:
         order_state = st.session_state["order_state"]
         collected = order_state.get("collected_data", {})
         
-        # Progress bar
-        from attribute_schema import REQUIRED_ATTRIBUTES, get_missing_attributes
-        total_required = len([a for a, info in REQUIRED_ATTRIBUTES.items() if not info.get("optional", False)])
-        real_collected = {k: v for k, v in collected.items() if v != "[Not discussed]"}
-        captured_count = len(real_collected)
-        progress = captured_count / total_required if total_required > 0 else 0
+        # Progress bar using new hierarchical schema
+        from attribute_schema import get_progress, get_next_question_info
+        answered, total = get_progress(collected)
+        progress = answered / total if total > 0 else 0
         
         st.progress(progress)
-        st.caption(f"**{captured_count}/{total_required}** process aspects captured")
+        st.caption(f"**{answered}/{total}** questions answered")
         
-        # Current focus area
-        current_focus = order_state.get("current_focus")
-        if current_focus:
-            st.subheader("🎯 Current Focus")
-            st.write(f"**{current_focus.get('subclass', 'N/A')}**")
-            st.caption(f"Looking for: {', '.join(current_focus.get('attributes', [])[:3])}")
+        # Current question
+        current_q_id = order_state.get("current_question_id")
+        if current_q_id:
+            st.subheader("🎯 Current Question")
+            st.write(f"**Q{current_q_id}**")
         
         # Captured data (collapsible)
-        if real_collected:
+        if collected:
             with st.expander("✅ Captured Data", expanded=False):
-                for attr, value in real_collected.items():
+                for attr, value in collected.items():
                     display_val = str(value)[:60] + "..." if len(str(value)) > 60 else str(value)
                     st.write(f"**{attr}:** {display_val}")
     else:

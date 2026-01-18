@@ -1,498 +1,359 @@
 """
-Attribute Schema for Order-to-Cash PROCESS DISCOVERY
-These attributes describe HOW a company manages orders, NOT a single order's data.
+Hierarchical Order Management Checklist Schema
+
+Attributes are structured as:
+- (M) Mandatory: Directly asked to user
+- (I) Inferred: Derived internally from previous answers
+
+Conditional flow ensures questions are asked in order,
+skipping conditional ones if their trigger condition is not met.
 """
 
-# Define the natural O2C flow order for subclasses
-SUBCLASS_FLOW_ORDER = [
-    ("Order Demand & Validation", "Order Intake"),
-    ("Order Demand & Validation", "Commercial Validation"),
-    ("Order Demand & Validation", "Credit Governance"),
-    ("Fulfillment & Distribution", "Inventory & Production"),
-    ("Fulfillment & Distribution", "Warehouse Operations"),
-    ("Fulfillment & Distribution", "Transportation Management"),
-    ("Revenue Realization & Invoicing", "Billing Execution"),
-    ("Revenue Realization & Invoicing", "Revenue Accounting"),
-    ("Financial Settlements & Recovery", "Cash Application"),
-    ("Financial Settlements & Recovery", "Dispute & Deduction Management"),
-    ("Financial Settlements & Recovery", "Collections & Dunning"),
-    ("Master Data & Lifecycle Support", "Customer Master & Onboarding"),
-    ("Master Data & Lifecycle Support", "Reverse Logistics"),
-    ("Master Data & Lifecycle Support", "Reporting & Audit Controls"),
+# Question flow order - each entry has:
+# - id: Question identifier (matches checklist numbering)
+# - key: Attribute key to store the answer
+# - question: The actual question to ask
+# - type: "M" (mandatory) or "I" (inferred)
+# - condition: Function name to check if question should be asked (None = always)
+# - inference_from: For type "I", which key to infer from
+
+QUESTION_FLOW = [
+    {
+        "id": "1",
+        "key": "order_origin_channels",
+        "question": "How does an order originate? What channels do orders come through?",
+        "type": "M",
+        "condition": None,
+        "examples": ["EDI from retailers", "B2B Portal", "Manual entry from email/PDF", "Phone orders"]
+    },
+    {
+        "id": "1.1",
+        "key": "has_manual_intake",
+        "question": None,  # Inferred, not asked
+        "type": "I",
+        "inference_from": "order_origin_channels",
+        "inference_logic": "infer_has_manual"
+    },
+    {
+        "id": "1.1.1",
+        "key": "manual_intake_method",
+        "question": "You mentioned manual order intake. How do you receive these orders - by Emails, Digital Documents (PDF), or Physical Documents?",
+        "type": "M",
+        "condition": "has_manual_intake_yes",
+        "examples": ["Email with attached PO", "Scanned PDFs", "Faxed orders", "Physical mail"]
+    },
+    {
+        "id": "2",
+        "key": "order_receiver",
+        "question": "Who receives the order? Which team or role handles incoming orders?",
+        "type": "M",
+        "condition": None,
+        "examples": ["Sales team", "Customer service", "Order desk", "Shared inbox"]
+    },
+    {
+        "id": "3",
+        "key": "captured_data_fields",
+        "question": "What data do you capture when an order comes in?",
+        "type": "M",
+        "condition": None,
+        "examples": ["Customer ID, SKU, Quantity, Price", "Ship-to address, PO number", "Requested delivery date"]
+    },
+    {
+        "id": "4",
+        "key": "primary_order_system",
+        "question": "What is the primary system where the sales order is formally created and recorded?",
+        "type": "M",
+        "condition": None,
+        "examples": ["SAP", "Oracle EBS", "NetSuite", "Custom ERP", "Spreadsheets"]
+    },
+    {
+        "id": "4.1",
+        "key": "uses_erp",
+        "question": None,  # Inferred
+        "type": "I",
+        "inference_from": "primary_order_system",
+        "inference_logic": "infer_uses_erp"
+    },
+    {
+        "id": "5",
+        "key": "manual_data_verification",
+        "question": "For manual orders, how do you verify that all necessary data is captured? Do you use a Form or Checklist?",
+        "type": "M",
+        "condition": "has_manual_intake_yes",
+        "examples": ["Required field checklist in ERP", "Paper form", "No formal verification"]
+    },
+    {
+        "id": "6",
+        "key": "automated_data_capture",
+        "question": "For portal or EDI orders, does the system capture all necessary data before creating an order entry?",
+        "type": "M",
+        "condition": "has_automated_channel",
+        "examples": ["Yes, all fields required", "Partial - some fields optional", "No validation"]
+    },
+    {
+        "id": "7",
+        "key": "required_verification_fields",
+        "question": "What are all the necessary data fields that need to be verified before creating an order entry?",
+        "type": "M",
+        "condition": None,
+        "examples": ["Customer ID, SKU validity, Quantity, Price, Ship-to address", "Credit status", "PO number"]
+    },
+    {
+        "id": "8",
+        "key": "verification_success_rate",
+        "question": "How successfully does this data verification happen? What percentage of orders pass on first try?",
+        "type": "M",
+        "condition": None,
+        "examples": ["90% pass first time", "Variable - depends on channel", "Often need to follow up"]
+    },
+    {
+        "id": "9",
+        "key": "verification_owner",
+        "question": "Who is responsible for this data verification step?",
+        "type": "M",
+        "condition": None,
+        "examples": ["Sales rep who entered", "Order desk team", "System auto-validates", "Quality team"]
+    },
+    {
+        "id": "10",
+        "key": "credit_approval_type",
+        "question": "What kind of credit approval mechanism do you have?",
+        "type": "M",
+        "condition": None,
+        "examples": ["Auto-approval under threshold", "Manual review for all", "Combination of both"]
+    },
+    {
+        "id": "10.1",
+        "key": "has_auto_approval",
+        "question": None,  # Inferred
+        "type": "I",
+        "inference_from": "credit_approval_type",
+        "inference_logic": "infer_has_auto_approval"
+    },
+    {
+        "id": "10.1.1",
+        "key": "auto_approval_limit",
+        "question": "What is the credit amount threshold for auto-approval?",
+        "type": "M",
+        "condition": "has_auto_approval_yes",
+        "examples": ["$50,000", "$10,000", "Depends on customer credit rating"]
+    },
+    {
+        "id": "10.2",
+        "key": "has_manual_credit",
+        "question": None,  # Inferred
+        "type": "I",
+        "inference_from": "credit_approval_type",
+        "inference_logic": "infer_has_manual_credit"
+    },
+    {
+        "id": "10.2.1",
+        "key": "manual_credit_approver",
+        "question": "Who does the manual credit approval?",
+        "type": "M",
+        "condition": "has_manual_credit_yes",
+        "examples": ["Credit analyst", "Finance manager", "AR team", "Sales manager"]
+    },
+    {
+        "id": "10.2.2",
+        "key": "credit_decision_factors",
+        "question": "What data points are looked at to make the credit decision?",
+        "type": "M",
+        "condition": "has_manual_credit_yes",
+        "examples": ["AR balance", "Payment history", "D&B rating", "Open orders value"]
+    },
+    {
+        "id": "10.2.3",
+        "key": "credit_decision_to_sales",
+        "question": "How is the final credit decision conveyed to the sales rep?",
+        "type": "M",
+        "condition": "has_manual_credit_and_manual_channel",
+        "examples": ["Email notification", "ERP status update", "Phone call", "Dashboard alert"]
+    },
+    {
+        "id": "10.2.4",
+        "key": "credit_decision_to_customer",
+        "question": "How is the final credit decision conveyed to the customer?",
+        "type": "M",
+        "condition": "has_manual_credit_yes",
+        "examples": ["Sales rep informs", "Automated email", "Order confirmation shows status"]
+    },
 ]
 
-# All process attributes - these describe HOW the company handles each aspect
-REQUIRED_ATTRIBUTES = {
-    # Class 1: Order Demand & Validation - Order Intake
-    "source_channel": {
-        "description": "What channels do orders come through",
-        "process_question": "How do orders come into your organization?",
-        "examples": ["EDI 850 from retailers", "B2B Portal", "Manual Email/PDF entry by sales team"],
-        "class": "Order Demand & Validation",
-        "subclass": "Order Intake",
-        "order": 1
-    },
-    "intake_timestamp": {
-        "description": "How order receipt time is tracked",
-        "process_question": "How do you track when orders are received?",
-        "examples": ["ERP timestamp on entry", "Email receipt time", "Manual logging"],
-        "class": "Order Demand & Validation",
-        "subclass": "Order Intake",
-        "order": 2,
-        "optional": True
-    },
-    "order_completeness_score": {
-        "description": "How order data completeness is measured",
-        "process_question": "How do you ensure orders have all necessary data? Is there a checklist?",
-        "examples": ["Required field checklist in ERP", "Variable adherence", "No formal process"],
-        "class": "Order Demand & Validation",
-        "subclass": "Order Intake",
-        "order": 3
-    },
-    
-    # Commercial Validation
-    "sku_validity": {
-        "description": "How SKU validity is checked",
-        "process_question": "How do you validate that the SKU/product exists and is valid?",
-        "examples": ["ERP auto-validates", "Manual lookup", "No validation"],
-        "class": "Order Demand & Validation",
-        "subclass": "Commercial Validation",
-        "order": 4,
-        "optional": True
-    },
-    "quantity_availability": {
-        "description": "How inventory availability is checked",
-        "process_question": "How do you check if the quantity is available?",
-        "examples": ["Real-time ATP check", "Warehouse confirms", "Separate inventory system"],
-        "class": "Order Demand & Validation",
-        "subclass": "Commercial Validation",
-        "order": 5,
-        "optional": True
-    },
-    "pricing_logic": {
-        "description": "How pricing is determined and validated",
-        "process_question": "How is pricing determined - contractual, promotional, or list price?",
-        "examples": ["Contractual pricing in master", "Manual promo code entry", "Price lists"],
-        "class": "Order Demand & Validation",
-        "subclass": "Commercial Validation",
-        "order": 6
-    },
-    "fob_terms": {
-        "description": "How FOB/shipping terms are captured",
-        "process_question": "How are FOB terms and shipping instructions captured?",
-        "examples": ["Customer master default", "Order-specific entry", "Often missed"],
-        "class": "Order Demand & Validation",
-        "subclass": "Commercial Validation",
-        "order": 7,
-        "optional": True
-    },
-    
-    # Credit Governance
-    "credit_limit": {
-        "description": "How credit limits are managed",
-        "process_question": "What credit limits exist and how are they managed?",
-        "examples": ["$50,000 threshold for auto-approval", "Customer-specific limits", "No limits"],
-        "class": "Order Demand & Validation",
-        "subclass": "Credit Governance",
-        "order": 8
-    },
-    "risk_scoring": {
-        "description": "How credit risk is assessed",
-        "process_question": "How do you assess credit risk? Any external ratings used?",
-        "examples": ["D&B Rating checked manually", "Internal scoring", "No formal scoring"],
-        "class": "Order Demand & Validation",
-        "subclass": "Credit Governance",
-        "order": 9
-    },
-    "approval_workflow": {
-        "description": "How credit approval workflow operates",
-        "process_question": "Walk me through the credit approval process. Auto-approval vs manual?",
-        "examples": ["Auto-approve under threshold", "Manual analyst queue", "Manager approval required"],
-        "class": "Order Demand & Validation",
-        "subclass": "Credit Governance",
-        "order": 10
-    },
-    "order_status": {
-        "description": "What order statuses exist after validation",
-        "process_question": "What happens after credit review - what are the possible outcomes?",
-        "examples": ["Released, Blocked, Conditional", "Approved with conditions", "Reject or accept only"],
-        "class": "Order Demand & Validation",
-        "subclass": "Credit Governance",
-        "order": 11
-    },
-    
-    # Fulfillment & Distribution - Inventory & Production
-    "stock_category": {
-        "description": "How stock types are managed (MTS vs MTO)",
-        "process_question": "Is this make-to-stock or make-to-order? How does that work?",
-        "examples": ["MTS for standard items", "MTO goes to production queue", "Mixed"],
-        "class": "Fulfillment & Distribution",
-        "subclass": "Inventory & Production",
-        "order": 12
-    },
-    "warehouse_assignment": {
-        "description": "How warehouse/DC is assigned",
-        "process_question": "How is the fulfilling warehouse determined?",
-        "examples": ["Customer region-based", "Inventory availability", "Single warehouse"],
-        "class": "Fulfillment & Distribution",
-        "subclass": "Inventory & Production",
-        "order": 13
-    },
-    "production_queue_status": {
-        "description": "How production scheduling works for MTO",
-        "process_question": "For made-to-order items, how does production scheduling work?",
-        "examples": ["Goes to production queue", "Scheduler reviews daily", "Not applicable - all MTS"],
-        "class": "Fulfillment & Distribution",
-        "subclass": "Inventory & Production",
-        "order": 14
-    },
-    
-    # Warehouse Operations
-    "picking_document_type": {
-        "description": "How pick lists are generated and used",
-        "process_question": "How does the warehouse know what to pick? Paper lists or RF scanners?",
-        "examples": ["Paper pick lists", "RF Scanner Task", "WMS-directed picking"],
-        "class": "Fulfillment & Distribution",
-        "subclass": "Warehouse Operations",
-        "order": 15
-    },
-    "packing_status": {
-        "description": "How packing process works",
-        "process_question": "How does packing work? Pack slips, verification?",
-        "examples": ["Pack slip printed automatically", "Scan to verify", "Manual paper process"],
-        "class": "Fulfillment & Distribution",
-        "subclass": "Warehouse Operations",
-        "order": 16,
-        "optional": True
-    },
-    "system_reliability_metric": {
-        "description": "Reliability of warehouse systems",
-        "process_question": "How reliable are the warehouse systems? Any issues?",
-        "examples": ["Scanner uptime 95%", "Old system crashes frequently", "Reliable"],
-        "class": "Fulfillment & Distribution",
-        "subclass": "Warehouse Operations",
-        "order": 17,
-        "optional": True
-    },
-    
-    # Transportation Management
-    "carrier_selection": {
-        "description": "How carriers are selected",
-        "process_question": "How is the carrier selected? LTL, small parcel, etc.?",
-        "examples": ["FedEx/UPS for small parcel", "LTL for larger", "Rate shopping"],
-        "class": "Fulfillment & Distribution",
-        "subclass": "Transportation Management",
-        "order": 18
-    },
-    "tracking_id": {
-        "description": "How tracking numbers are managed",
-        "process_question": "How are tracking numbers generated and communicated?",
-        "examples": ["Carrier portal generates", "Manually typed into ERP", "API integration"],
-        "class": "Fulfillment & Distribution",
-        "subclass": "Transportation Management",
-        "order": 19
-    },
-    "shipping_mode": {
-        "description": "Shipping modes available",
-        "process_question": "What shipping modes do you offer?",
-        "examples": ["Ground, Express, 2-day", "Customer-specified", "Standard only"],
-        "class": "Fulfillment & Distribution",
-        "subclass": "Transportation Management",
-        "order": 20,
-        "optional": True
-    },
-    "data_integrity_type": {
-        "description": "How shipping data flows between systems",
-        "process_question": "How does shipping data flow - manual re-key or API integration?",
-        "examples": ["Manual re-key to carrier portals", "API integration", "EDI"],
-        "class": "Fulfillment & Distribution",
-        "subclass": "Transportation Management",
-        "order": 21
-    },
-    
-    # Revenue Realization - Billing Execution
-    "generation_trigger": {
-        "description": "What triggers invoice generation",
-        "process_question": "When does invoicing happen? What triggers it?",
-        "examples": ["Post-Goods Issue", "When marked shipped", "Manual trigger"],
-        "class": "Revenue Realization & Invoicing",
-        "subclass": "Billing Execution",
-        "order": 22
-    },
-    "invoice_format": {
-        "description": "Invoice format and delivery method",
-        "process_question": "What format are invoices - EDI 810, PDF, email?",
-        "examples": ["EDI 810 for large customers", "PDF emailed", "Paper mailed"],
-        "class": "Revenue Realization & Invoicing",
-        "subclass": "Billing Execution",
-        "order": 23
-    },
-    "landed_cost_calculation": {
-        "description": "How freight/landed costs are calculated",
-        "process_question": "How are freight and landed costs calculated and added to invoices?",
-        "examples": ["Automated via TM", "Manual freight log spreadsheet", "Not included"],
-        "class": "Revenue Realization & Invoicing",
-        "subclass": "Billing Execution",
-        "order": 24
-    },
-    
-    # Revenue Accounting
-    "revenue_recognition_event": {
-        "description": "When revenue is recognized",
-        "process_question": "When is revenue recognized - on shipment, delivery, or invoice?",
-        "examples": ["On shipment", "On delivery", "On invoice"],
-        "class": "Revenue Realization & Invoicing",
-        "subclass": "Revenue Accounting",
-        "order": 25
-    },
-    "tax_jurisdiction_vat_code": {
-        "description": "How tax is determined",
-        "process_question": "How is tax/VAT determined for orders?",
-        "examples": ["Based on ship-to address", "Tax engine integration", "Manual"],
-        "class": "Revenue Realization & Invoicing",
-        "subclass": "Revenue Accounting",
-        "order": 26
-    },
-    "gl_account_mapping": {
-        "description": "How GL accounts are assigned",
-        "process_question": "How are GL accounts mapped for revenue?",
-        "examples": ["Product category-based", "Standard mapping", "Manual assignment"],
-        "class": "Revenue Realization & Invoicing",
-        "subclass": "Revenue Accounting",
-        "order": 27
-    },
-    
-    # Financial Settlements - Cash Application
-    "remittance_method": {
-        "description": "How customers pay",
-        "process_question": "How do customers pay? What are the remittance methods?",
-        "examples": ["60% lockbox/check", "30% ACH", "10% credit card"],
-        "class": "Financial Settlements & Recovery",
-        "subclass": "Cash Application",
-        "order": 28
-    },
-    "auto_match_rate": {
-        "description": "How payments are matched to invoices",
-        "process_question": "How are payments matched to invoices? Automated or manual?",
-        "examples": ["70% auto-matched by invoice number", "AI/ML matching", "All manual"],
-        "class": "Financial Settlements & Recovery",
-        "subclass": "Cash Application",
-        "order": 29
-    },
-    "unapplied_cash_balance": {
-        "description": "How unapplied payments are handled",
-        "process_question": "How do you handle payments that can't be matched? Unapplied cash?",
-        "examples": ["Research queue", "2-3 hours daily manual work", "Minimal unapplied"],
-        "class": "Financial Settlements & Recovery",
-        "subclass": "Cash Application",
-        "order": 30
-    },
-    
-    # Dispute & Deduction Management
-    "dispute_reason_code": {
-        "description": "Common dispute/deduction reasons",
-        "process_question": "What are the common reasons for disputes or deductions?",
-        "examples": ["Pricing disputes", "Damaged goods", "Short-ship", "Promo deductions"],
-        "class": "Financial Settlements & Recovery",
-        "subclass": "Dispute & Deduction Management",
-        "order": 31,
-        "optional": True
-    },
-    "case_owner": {
-        "description": "Who handles disputes",
-        "process_question": "Who owns the dispute resolution process?",
-        "examples": ["Sales rep contacts customer", "Collections specialist", "Finance team"],
-        "class": "Financial Settlements & Recovery",
-        "subclass": "Dispute & Deduction Management",
-        "order": 32,
-        "optional": True
-    },
-    "tracking_repository": {
-        "description": "Where disputes are tracked",
-        "process_question": "How are disputes tracked? ERP, Excel, email?",
-        "examples": ["ERP case management", "Excel tracker", "Mix of emails"],
-        "class": "Financial Settlements & Recovery",
-        "subclass": "Dispute & Deduction Management",
-        "order": 33,
-        "optional": True
-    },
-    
-    # Collections & Dunning
-    "ar_aging_bucket": {
-        "description": "How AR aging is managed",
-        "process_question": "How do you manage AR aging? What buckets do you use?",
-        "examples": ["Current, 30, 60, 90+ days", "Weekly aging report", "Real-time dashboard"],
-        "class": "Financial Settlements & Recovery",
-        "subclass": "Collections & Dunning",
-        "order": 34
-    },
-    "dunning_level": {
-        "description": "How dunning/collection process works",
-        "process_question": "What's your dunning process for overdue accounts?",
-        "examples": ["Automated dunning letters", "Collector call scripts", "Manual outreach"],
-        "class": "Financial Settlements & Recovery",
-        "subclass": "Collections & Dunning",
-        "order": 35
-    },
-    "bad_debt_provision_status": {
-        "description": "How bad debt is managed",
-        "process_question": "How is bad debt provisioned and written off?",
-        "examples": ["Quarterly review", "Trigger at 120 days", "Case-by-case"],
-        "class": "Financial Settlements & Recovery",
-        "subclass": "Collections & Dunning",
-        "order": 36
-    },
-    
-    # Master Data - Customer Master
-    "legal_entity_name": {
-        "description": "How customer master is structured",
-        "process_question": "How is customer master data structured - by legal entity?",
-        "examples": ["Legal entity with ship-to hierarchy", "Single account", "Complex hierarchy"],
-        "class": "Master Data & Lifecycle Support",
-        "subclass": "Customer Master & Onboarding",
-        "order": 37
-    },
-    "tax_id": {
-        "description": "How tax IDs are managed",
-        "process_question": "How are customer tax IDs captured and validated?",
-        "examples": ["Required at setup", "W-9 process", "Not validated"],
-        "class": "Master Data & Lifecycle Support",
-        "subclass": "Customer Master & Onboarding",
-        "order": 38
-    },
-    "payment_terms": {
-        "description": "How payment terms are set",
-        "process_question": "How are payment terms established for customers?",
-        "examples": ["Standard Net 30", "Negotiated by sales", "Credit-based"],
-        "class": "Master Data & Lifecycle Support",
-        "subclass": "Customer Master & Onboarding",
-        "order": 39
-    },
-    "credit_threshold": {
-        "description": "How credit limits are established",
-        "process_question": "How are credit limits established for new customers?",
-        "examples": ["Credit application process", "D&B-based", "Sales discretion"],
-        "class": "Master Data & Lifecycle Support",
-        "subclass": "Customer Master & Onboarding",
-        "order": 40
-    },
-    "setup_workflow_status": {
-        "description": "Customer onboarding workflow",
-        "process_question": "What's the customer onboarding/setup workflow?",
-        "examples": ["Formal workflow with approvals", "Sales enters directly", "Paper forms"],
-        "class": "Master Data & Lifecycle Support",
-        "subclass": "Customer Master & Onboarding",
-        "order": 41
-    },
-    
-    # Reverse Logistics
-    "return_authorization_number": {
-        "description": "How RMAs are handled",
-        "process_question": "How are returns authorized? RMA process?",
-        "examples": ["Formal RMA required", "Sales approves", "No formal process"],
-        "class": "Master Data & Lifecycle Support",
-        "subclass": "Reverse Logistics",
-        "order": 42,
-        "optional": True
-    },
-    "inspection_result": {
-        "description": "How returned items are inspected",
-        "process_question": "How are returned items inspected and dispositioned?",
-        "examples": ["Warehouse inspects", "Automatic restock", "Destroy on receipt"],
-        "class": "Master Data & Lifecycle Support",
-        "subclass": "Reverse Logistics",
-        "order": 43,
-        "optional": True
-    },
-    "restocking_fee_logic": {
-        "description": "Restocking fee policies",
-        "process_question": "Are there restocking fees? How are they applied?",
-        "examples": ["15% restocking fee", "No fees", "Customer-specific"],
-        "class": "Master Data & Lifecycle Support",
-        "subclass": "Reverse Logistics",
-        "order": 44,
-        "optional": True
-    },
-    "credit_memo_status": {
-        "description": "How credit memos are issued",
-        "process_question": "How are credit memos issued for returns?",
-        "examples": ["Auto on inspection", "Manual approval", "AR issues"],
-        "class": "Master Data & Lifecycle Support",
-        "subclass": "Reverse Logistics",
-        "order": 45,
-        "optional": True
-    },
-    
-    # Reporting & Audit
-    "kpis": {
-        "description": "Key metrics tracked",
-        "process_question": "What KPIs do you track for O2C? DSO, cycle time?",
-        "examples": ["DSO, Order Cycle Time, Invoice Accuracy", "Cash Application Accuracy"],
-        "class": "Master Data & Lifecycle Support",
-        "subclass": "Reporting & Audit Controls",
-        "order": 46
-    },
-    "sod_flags": {
-        "description": "Segregation of duties controls",
-        "process_question": "How do you manage segregation of duties?",
-        "examples": ["ERP roles enforced", "Manual review", "Audit flags"],
-        "class": "Master Data & Lifecycle Support",
-        "subclass": "Reporting & Audit Controls",
-        "order": 47
-    },
-    "sub_ledger_reconciliation_status": {
-        "description": "How sub-ledger reconciliation works",
-        "process_question": "How do you reconcile sub-ledger to GL?",
-        "examples": ["Daily automated", "Monthly manual", "Separate sources compiled"],
-        "class": "Master Data & Lifecycle Support",
-        "subclass": "Reporting & Audit Controls",
-        "order": 48
+# Build attribute schema from flow
+REQUIRED_ATTRIBUTES = {}
+for q in QUESTION_FLOW:
+    REQUIRED_ATTRIBUTES[q["key"]] = {
+        "id": q["id"],
+        "question": q.get("question"),
+        "type": q["type"],
+        "condition": q.get("condition"),
+        "examples": q.get("examples", []),
+        "inference_from": q.get("inference_from"),
+        "inference_logic": q.get("inference_logic"),
     }
+
+
+# ============ INFERENCE FUNCTIONS ============
+
+def infer_has_manual(channels_value):
+    """Infer if manual intake exists from order_origin_channels."""
+    if not channels_value:
+        return None
+    lower = channels_value.lower()
+    manual_keywords = ["manual", "email", "pdf", "phone", "fax", "physical", "paper", "mail", "scan"]
+    return "Yes" if any(kw in lower for kw in manual_keywords) else "No"
+
+
+def infer_uses_erp(system_value):
+    """Infer if client uses ERP from primary_order_system."""
+    if not system_value:
+        return None
+    lower = system_value.lower()
+    erp_keywords = ["erp", "sap", "oracle", "netsuite", "dynamics", "jd edwards", "infor", "epicor", "sage"]
+    return "ERP" if any(kw in lower for kw in erp_keywords) else "Non-ERP"
+
+
+def infer_has_auto_approval(credit_type_value):
+    """Infer if auto-approval exists from credit_approval_type."""
+    if not credit_type_value:
+        return None
+    lower = credit_type_value.lower()
+    auto_keywords = ["auto", "automatic", "threshold", "under $", "below"]
+    return "Yes" if any(kw in lower for kw in auto_keywords) else "No"
+
+
+def infer_has_manual_credit(credit_type_value):
+    """Infer if manual credit approval exists from credit_approval_type."""
+    if not credit_type_value:
+        return None
+    lower = credit_type_value.lower()
+    manual_keywords = ["manual", "analyst", "review", "approve", "manager", "above", "over $"]
+    # Also check if it's not purely auto
+    if "only auto" in lower or "all auto" in lower:
+        return "No"
+    return "Yes" if any(kw in lower for kw in manual_keywords) else "No"
+
+
+INFERENCE_FUNCTIONS = {
+    "infer_has_manual": infer_has_manual,
+    "infer_uses_erp": infer_uses_erp,
+    "infer_has_auto_approval": infer_has_auto_approval,
+    "infer_has_manual_credit": infer_has_manual_credit,
 }
 
+
+# ============ CONDITION FUNCTIONS ============
+
+def check_condition(condition_name, collected_data):
+    """Check if a condition is met based on collected data."""
+    if condition_name is None:
+        return True
+    
+    if condition_name == "has_manual_intake_yes":
+        return collected_data.get("has_manual_intake") == "Yes"
+    
+    if condition_name == "has_automated_channel":
+        channels = collected_data.get("order_origin_channels", "").lower()
+        return "edi" in channels or "portal" in channels or "b2b" in channels
+    
+    if condition_name == "has_auto_approval_yes":
+        return collected_data.get("has_auto_approval") == "Yes"
+    
+    if condition_name == "has_manual_credit_yes":
+        return collected_data.get("has_manual_credit") == "Yes"
+    
+    if condition_name == "has_manual_credit_and_manual_channel":
+        has_manual_credit = collected_data.get("has_manual_credit") == "Yes"
+        has_manual_channel = collected_data.get("has_manual_intake") == "Yes"
+        return has_manual_credit and has_manual_channel
+    
+    return True
+
+
+# ============ FLOW HELPER FUNCTIONS ============
+
+def run_inferences(collected_data):
+    """Run all applicable inferences based on collected data."""
+    for q in QUESTION_FLOW:
+        if q["type"] == "I" and q.get("inference_from"):
+            source_key = q["inference_from"]
+            if source_key in collected_data and q["key"] not in collected_data:
+                inference_func = INFERENCE_FUNCTIONS.get(q.get("inference_logic"))
+                if inference_func:
+                    inferred_value = inference_func(collected_data[source_key])
+                    if inferred_value:
+                        collected_data[q["key"]] = inferred_value
+    return collected_data
+
+
+def get_next_question_info(collected_data):
+    """Get the next question to ask based on collected data and conditions."""
+    # First, run inferences
+    collected_data = run_inferences(collected_data)
+    
+    # Find first unanswered mandatory question that meets its condition
+    for q in QUESTION_FLOW:
+        if q["type"] != "M":
+            continue  # Skip inferred questions
+        
+        if q["key"] in collected_data:
+            continue  # Already answered
+        
+        if not check_condition(q.get("condition"), collected_data):
+            continue  # Condition not met, skip
+        
+        return {
+            "id": q["id"],
+            "key": q["key"],
+            "question": q["question"],
+            "examples": q.get("examples", [])
+        }
+    
+    return None  # All questions answered
+
+
 def get_missing_attributes(collected_data):
-    """Returns list of attributes not yet captured, in flow order."""
+    """Get list of mandatory attributes not yet collected (that meet conditions)."""
+    collected_data = run_inferences(collected_data)
     missing = []
-    for attr_name, attr_info in REQUIRED_ATTRIBUTES.items():
-        if attr_info.get("optional", False):
-            continue
-        if attr_name not in collected_data or collected_data[attr_name] is None:
-            missing.append((attr_name, attr_info.get("order", 999)))
-    missing.sort(key=lambda x: x[1])
-    return [name for name, _ in missing]
-
-def get_missing_by_subclass(collected_data):
-    """Returns missing attributes grouped by subclass in flow order."""
-    missing = {}
-    for attr_name, attr_info in REQUIRED_ATTRIBUTES.items():
-        if attr_info.get("optional", False):
-            continue
-        if attr_name not in collected_data or collected_data[attr_name] is None:
-            key = (attr_info["class"], attr_info["subclass"])
-            if key not in missing:
-                missing[key] = []
-            missing[key].append((attr_name, attr_info.get("order", 999)))
     
-    for key in missing:
-        missing[key].sort(key=lambda x: x[1])
-        missing[key] = [name for name, _ in missing[key]]
+    for q in QUESTION_FLOW:
+        if q["type"] != "M":
+            continue
+        if q["key"] in collected_data:
+            continue
+        if not check_condition(q.get("condition"), collected_data):
+            continue
+        missing.append(q["key"])
     
-    result = []
-    for class_subclass in SUBCLASS_FLOW_ORDER:
-        if class_subclass in missing:
-            result.append({
-                "class": class_subclass[0],
-                "subclass": class_subclass[1],
-                "attributes": missing[class_subclass]
-            })
-    return result
+    return missing
 
-def get_attribute_info(attr_name):
-    return REQUIRED_ATTRIBUTES.get(attr_name, {})
+
+def get_all_attribute_keys():
+    """Get all attribute keys in order."""
+    return [q["key"] for q in QUESTION_FLOW]
+
 
 def is_complete(collected_data):
+    """Check if all required questions are answered."""
     return len(get_missing_attributes(collected_data)) == 0
 
-def get_current_focus_area(collected_data):
-    missing_by_subclass = get_missing_by_subclass(collected_data)
-    return missing_by_subclass[0] if missing_by_subclass else None
+
+def get_progress(collected_data):
+    """Get progress as (answered, total_applicable)."""
+    collected_data = run_inferences(collected_data)
+    
+    total = 0
+    answered = 0
+    
+    for q in QUESTION_FLOW:
+        if q["type"] != "M":
+            continue
+        if not check_condition(q.get("condition"), collected_data):
+            continue
+        total += 1
+        if q["key"] in collected_data:
+            answered += 1
+    
+    return answered, total
