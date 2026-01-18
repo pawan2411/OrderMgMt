@@ -64,9 +64,16 @@ if api_key:
     if "orchestrator" not in st.session_state:
         st.session_state.orchestrator = Orchestrator()
 
-    # Initialize Chat History
+    # Initialize Chat History with opening message
     if "messages" not in st.session_state:
         st.session_state.messages = []
+        # Start the conversation with opening message
+        from order_mgmt import OrderManager
+        mgr = OrderManager()
+        opening, state = mgr.start_conversation()
+        st.session_state.messages.append({"role": "assistant", "content": opening})
+        st.session_state["order_state"] = state
+        st.session_state["mode"] = "ORDER_MGMT"
 
     # Display chat messages from history
     for message in st.session_state.messages:

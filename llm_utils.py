@@ -73,28 +73,27 @@ def route_query(user_input):
 def extract_all_mentioned_attributes(user_input, attribute_schema, conversation_history="", expected_key=None):
     """
     Extracts process information from user response.
-    
-    user_input: The user's latest message
-    attribute_schema: Dict of all attributes with metadata
-    conversation_history: Recent conversation for context
-    expected_key: The specific attribute key we're currently asking about
+    Uses 3-conversation rolling window for context.
     """
     
     # Build focused extraction based on what we're asking
     if expected_key and expected_key in attribute_schema:
         attr_info = attribute_schema[expected_key]
         examples = attr_info.get("examples", [])
+        question = attr_info.get("question", "")
         
         system_prompt = (
             f"Extract the answer to this question from the user's response.\n\n"
-            f"Question topic: {expected_key}\n"
-            f"Expected answer type: Process description\n"
-            f"Examples: {', '.join(examples[:3]) if examples else 'Any description'}\n\n"
-            "Rules:\n"
-            "1. Extract the user's answer as a concise, complete description\n"
-            "2. Capture the key details they mentioned\n"
+            f"Question asked: {question}\n"
+            f"Attribute key: {expected_key}\n"
+            f"Example valid answers: {', '.join(examples[:3]) if examples else 'Any value'}\n\n"
+            "IMPORTANT RULES:\n"
+            "1. Even SHORT answers are valid (e.g., 'online', 'EDI', 'email')\n"
+            "2. If the user gives a brief answer, use it as-is\n"
             "3. Return valid JSON: {\"" + expected_key + "\": \"extracted value\"}\n"
-            "4. If they didn't answer or refused, return {}\n"
+            "4. Only return {} if they completely ignored the question\n\n"
+            "Example: If asked 'How do orders come in?' and user says 'online', return:\n"
+            "{\"" + expected_key + "\": \"Online\"}"
         )
     else:
         # Broad extraction - look for any attribute
@@ -106,17 +105,20 @@ def extract_all_mentioned_attributes(user_input, attribute_schema, conversation_
         
         system_prompt = (
             "Extract any process information from the user's response.\n\n"
-            f"Possible attributes to look for:\n" + "\n".join(attr_list[:15]) + "\n\n"
+            f"Possible attributes:\n" + "\n".join(attr_list[:15]) + "\n\n"
             "Rules:\n"
-            "1. Extract only what the user clearly mentions\n"
-            "2. Return valid JSON with attribute keys and values\n"
+            "1. Extract what the user mentions, even if brief\n"
+            "2. Return valid JSON\n"
             "3. If nothing found, return {}\n"
         )
     
-    # Include conversation context
+    # Build context with last 3 Q&A pairs (rolling window)
     user_message = user_input
     if conversation_history:
-        user_message = f"Context:\n{conversation_history}\n\nLatest response: {user_input}"
+        # Show context so LLM understands what the answer refers to
+        user_message = f"CONVERSATION CONTEXT:\n{conversation_history}\n\nUSER'S LATEST ANSWER: {user_input}"
+    else:
+        user_message = f"USER'S ANSWER: {user_input}"
     
     messages = [
         {"role": "system", "content": system_prompt},
