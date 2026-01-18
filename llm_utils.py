@@ -6,11 +6,23 @@ import json
 _client = None
 _api_key = None
 
+# Available models
+AVAILABLE_MODELS = {
+    "Qwen 2.5 72B (Recommended)": "Qwen/Qwen2.5-72B-Instruct-Turbo",
+    "Qwen 2.5 7B (Faster)": "Qwen/Qwen2.5-7B-Instruct-Turbo",
+}
+_model_name = "Qwen/Qwen2.5-72B-Instruct-Turbo"  # Default
+
 def set_api_key(key):
     """Set the API key programmatically (e.g., from Streamlit input)."""
     global _api_key, _client
     _api_key = key
     _client = None  # Reset client so it gets recreated with new key
+
+def set_model(model_name):
+    """Set the model to use for LLM calls."""
+    global _model_name
+    _model_name = model_name
 
 def get_client():
     global _client, _api_key
@@ -25,19 +37,18 @@ def get_client():
         )
     return _client
 
-MODEL_NAME = "Qwen/Qwen2.5-72B-Instruct-Turbo"
-
 def call_qwen(messages, temperature=0.0):
     """
     Calls the Qwen model via Together API.
     """
+    global _model_name
     client = get_client()
     if not client:
         return "Error: API key not set."
 
     try:
         response = client.chat.completions.create(
-            model=MODEL_NAME,
+            model=_model_name,
             messages=messages,
             temperature=temperature,
         )

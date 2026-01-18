@@ -1,6 +1,6 @@
 import streamlit as st
 import time
-from llm_utils import set_api_key
+from llm_utils import set_api_key, set_model, AVAILABLE_MODELS
 
 # Page config
 st.set_page_config(page_title="O2C Process Discovery", page_icon="📋", layout="wide")
@@ -22,6 +22,15 @@ with st.sidebar:
         st.success("✅ API Key set!")
     else:
         st.warning("⚠️ Please enter your API key to start")
+    
+    # Model selection dropdown
+    selected_model = st.selectbox(
+        "LLM Model",
+        options=list(AVAILABLE_MODELS.keys()),
+        index=0,
+        help="72B is more accurate, 7B is faster"
+    )
+    set_model(AVAILABLE_MODELS[selected_model])
     
     st.divider()
     st.header("📊 Process Discovery Progress")
