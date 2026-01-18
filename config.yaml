@@ -1,0 +1,330 @@
+# Root attribute is always 'channel' which decides the tree.
+root_question: "Let's start at the very beginning. How does this order come into your organization? Does it come through manual entry (email/PDF), EDI, or a B2B portal?"
+
+trees:
+  manual_email_pdf:
+    # 1. Order Intake & Validation
+    - attribute: intake_details
+      text: "For manual entries, is there a standard form or checklist the sales team uses to ensure they capture all necessary data? Tell me about the intake timestamp and order completeness."
+      extract_multiple:
+        - intake_timestamp
+        - order_completeness_score
+    
+    # 2. Commercial Validation
+    - attribute: commercial_validation
+      text: "Once the order is in the system, what happens next? Walk me through the validation process - how do you confirm SKU validity, quantity availability, and pricing logic?"
+      extract_multiple:
+        - sku_validity
+        - quantity_availability
+        - pricing_logic
+        - fob_terms
+
+    # 3. Credit Governance
+    - attribute: credit_check
+      text: "Is there an automatic credit check? Could you walk me through the credit approval process? What systems are used, what's the credit limit, risk scoring, and what are the possible outcomes?"
+      extract_multiple:
+        - credit_limit
+        - risk_scoring
+        - approval_workflow
+        - order_status
+
+    # 4. Fulfillment Handoff
+    - attribute: fulfillment_trigger
+      text: "What triggers the handoff to fulfillment or production? Tell me about the stock category, warehouse assignment, and production queue status."
+      extract_multiple:
+        - stock_category
+        - warehouse_assignment
+        - production_queue_status
+
+    # 5. Warehouse Operations
+    - attribute: warehouse_picking
+      text: "Let's follow the standard warehouse path. How do they know what to pick? Is it a paper pick list, RF scanner, or something else? What's the packing status and system reliability?"
+      extract_multiple:
+        - picking_document_type
+        - packing_status
+        - system_reliability_metric
+
+    # 6. Shipping & Transportation
+    - attribute: shipping_process
+      text: "After picking, how is shipping integrated? How do you select carriers, generate tracking, and what's the data integrity - is it manual re-key or API integration?"
+      extract_multiple:
+        - carrier_selection
+        - tracking_id
+        - shipping_mode
+        - data_integrity_type
+
+    # 7. Invoicing & Billing
+    - attribute: invoicing_process
+      text: "When does invoicing happen? Walk me through the invoice generation trigger, format, and how landed costs are calculated - is it automated or manual?"
+      extract_multiple:
+        - generation_trigger
+        - invoice_format
+        - landed_cost_calculation
+
+    # 8. Revenue Recognition
+    - attribute: revenue_accounting
+      text: "Tell me about revenue recognition. What's the recognition event, tax jurisdiction, and GL account mapping?"
+      extract_multiple:
+        - revenue_recognition_event
+        - tax_jurisdiction_vat_code
+        - gl_account_mapping
+
+    # 9. Cash Application
+    - attribute: payment_process
+      text: "Let's follow the money. How do customers pay? What's the remittance method, auto-match rate, and unapplied cash balance situation?"
+      extract_multiple:
+        - remittance_method
+        - auto_match_rate
+        - unapplied_cash_balance
+
+    # 10. Disputes & Collections
+    - attribute: dispute_management
+      text: "What happens with discrepancies, short payments, or deductions? Who handles disputes, what's the tracking system, and what about AR aging and dunning?"
+      extract_multiple:
+        - dispute_reason_code
+        - case_owner
+        - tracking_repository
+        - ar_aging_bucket
+        - dunning_level
+        - bad_debt_provision_status
+
+    # 11. Customer Master Data
+    - attribute: customer_master
+      text: "Tell me about the customer master data for this order. What's the legal entity name, tax ID, payment terms, credit threshold, and setup workflow status?"
+      extract_multiple:
+        - legal_entity_name
+        - tax_id
+        - payment_terms
+        - credit_threshold
+        - setup_workflow_status
+
+    # 12. Returns & Reporting (Optional)
+    - attribute: returns_and_metrics
+      text: "If there are any returns, what's the return authorization number and process? Also, what metrics do you track - DSO, cycle time, and reconciliation status?"
+      extract_multiple:
+        - return_authorization_number
+        - inspection_result
+        - restocking_fee_logic
+        - credit_memo_status
+        - kpis
+        - sod_flags
+        - sub_ledger_reconciliation_status
+      optional: true
+
+  edi_850:
+    # 1. Order Intake & Validation
+    - attribute: intake_details
+      text: "For EDI orders, tell me about the intake process. When was the order received and what's the completeness score?"
+      extract_multiple:
+        - intake_timestamp
+        - order_completeness_score
+    
+    # 2. Commercial Validation
+    - attribute: commercial_validation
+      text: "Once the EDI order is received, what validation happens? How do you confirm SKU validity, quantity availability, and pricing logic?"
+      extract_multiple:
+        - sku_validity
+        - quantity_availability
+        - pricing_logic
+        - fob_terms
+
+    # 3. Credit Governance
+    - attribute: credit_check
+      text: "For EDI orders, is there an automatic credit check? Walk me through the credit approval workflow, limits, and risk scoring."
+      extract_multiple:
+        - credit_limit
+        - risk_scoring
+        - approval_workflow
+        - order_status
+
+    # 4. Fulfillment Handoff
+    - attribute: fulfillment_trigger
+      text: "What triggers fulfillment for EDI orders? Tell me about stock category, warehouse assignment, and production queue."
+      extract_multiple:
+        - stock_category
+        - warehouse_assignment
+        - production_queue_status
+
+    # 5. Warehouse Operations
+    - attribute: warehouse_picking
+      text: "How does the warehouse handle EDI orders? What picking system do they use and what's the reliability?"
+      extract_multiple:
+        - picking_document_type
+        - packing_status
+        - system_reliability_metric
+
+    # 6. Shipping & Transportation
+    - attribute: shipping_process
+      text: "How is shipping handled for EDI orders? Carrier selection, tracking, and data integration approach?"
+      extract_multiple:
+        - carrier_selection
+        - tracking_id
+        - shipping_mode
+        - data_integrity_type
+
+    # 7. Invoicing & Billing
+    - attribute: invoicing_process
+      text: "How do you invoice EDI customers? What format (EDI 810, PDF) and how are landed costs calculated?"
+      extract_multiple:
+        - generation_trigger
+        - invoice_format
+        - landed_cost_calculation
+
+    # 8. Revenue Recognition
+    - attribute: revenue_accounting
+      text: "Tell me about revenue recognition for EDI orders. Recognition event, tax codes, and GL mapping?"
+      extract_multiple:
+        - revenue_recognition_event
+        - tax_jurisdiction_vat_code
+        - gl_account_mapping
+
+    # 9. Cash Application
+    - attribute: payment_process
+      text: "How do EDI customers typically pay? Remittance method and auto-match rates?"
+      extract_multiple:
+        - remittance_method
+        - auto_match_rate
+        - unapplied_cash_balance
+
+    # 10. Disputes & Collections
+    - attribute: dispute_management
+      text: "For EDI orders, how are disputes handled? What's the process and tracking system?"
+      extract_multiple:
+        - dispute_reason_code
+        - case_owner
+        - tracking_repository
+        - ar_aging_bucket
+        - dunning_level
+        - bad_debt_provision_status
+
+    # 11. Customer Master Data
+    - attribute: customer_master
+      text: "Tell me about the customer master data. Legal entity, tax ID, payment terms, etc.?"
+      extract_multiple:
+        - legal_entity_name
+        - tax_id
+        - payment_terms
+        - credit_threshold
+        - setup_workflow_status
+
+    # 12. Returns & Reporting (Optional)
+    - attribute: returns_and_metrics
+      text: "Any returns or special metrics you track for EDI orders?"
+      extract_multiple:
+        - return_authorization_number
+        - inspection_result
+        - restocking_fee_logic
+        - credit_memo_status
+        - kpis
+        - sod_flags
+        - sub_ledger_reconciliation_status
+      optional: true
+
+  b2b_portal:
+    # 1. Order Intake & Validation
+    - attribute: intake_details
+      text: "For portal orders, tell me about the intake process. Is there better data completeness compared to manual entry?"
+      extract_multiple:
+        - intake_timestamp
+        - order_completeness_score
+    
+    # 2. Commercial Validation
+    - attribute: commercial_validation
+      text: "How does the portal validate orders? SKU, quantity, pricing - is it more automated?"
+      extract_multiple:
+        - sku_validity
+        - quantity_availability
+        - pricing_logic
+        - fob_terms
+
+    # 3. Credit Governance
+    - attribute: credit_check
+      text: "Do portal orders get real-time credit checks, or do they follow the same queue process? Walk me through it."
+      extract_multiple:
+        - credit_limit
+        - risk_scoring
+        - approval_workflow
+        - order_status
+
+    # 4. Fulfillment Handoff
+    - attribute: fulfillment_trigger
+      text: "How do portal orders trigger fulfillment? Stock category, warehouse assignment, production queue?"
+      extract_multiple:
+        - stock_category
+        - warehouse_assignment
+        - production_queue_status
+
+    # 5. Warehouse Operations
+    - attribute: warehouse_picking
+      text: "Does the warehouse handle portal orders differently? Picking system and reliability?"
+      extract_multiple:
+        - picking_document_type
+        - packing_status
+        - system_reliability_metric
+
+    # 6. Shipping & Transportation
+    - attribute: shipping_process
+      text: "How is shipping integrated for portal orders? Carrier selection and tracking?"
+      extract_multiple:
+        - carrier_selection
+        - tracking_id
+        - shipping_mode
+        - data_integrity_type
+
+    # 7. Invoicing & Billing
+    - attribute: invoicing_process
+      text: "How do you invoice portal customers? Format and landed cost calculation?"
+      extract_multiple:
+        - generation_trigger
+        - invoice_format
+        - landed_cost_calculation
+
+    # 8. Revenue Recognition
+    - attribute: revenue_accounting
+      text: "Revenue recognition for portal orders - event, tax codes, GL mapping?"
+      extract_multiple:
+        - revenue_recognition_event
+        - tax_jurisdiction_vat_code
+        - gl_account_mapping
+
+    # 9. Cash Application
+    - attribute: payment_process
+      text: "Payment methods for portal customers? Do they pay differently than others?"
+      extract_multiple:
+        - remittance_method
+        - auto_match_rate
+        - unapplied_cash_balance
+
+    # 10. Disputes & Collections
+    - attribute: dispute_management
+      text: "How are disputes handled for portal orders? Tracking and resolution process?"
+      extract_multiple:
+        - dispute_reason_code
+        - case_owner
+        - tracking_repository
+        - ar_aging_bucket
+        - dunning_level
+        - bad_debt_provision_status
+
+    # 11. Customer Master Data
+    - attribute: customer_master
+      text: "Customer master data for this portal order?"
+      extract_multiple:
+        - legal_entity_name
+        - tax_id
+        - payment_terms
+        - credit_threshold
+        - setup_workflow_status
+
+    # 12. Returns & Reporting (Optional)
+    - attribute: returns_and_metrics
+      text: "Any returns or metrics specific to portal orders?"
+      extract_multiple:
+        - return_authorization_number
+        - inspection_result
+        - restocking_fee_logic
+        - credit_memo_status
+        - kpis
+        - sod_flags
+        - sub_ledger_reconciliation_status
+      optional: true
