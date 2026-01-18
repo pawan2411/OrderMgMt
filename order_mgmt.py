@@ -120,8 +120,9 @@ class OrderManager:
         state["current_question_id"] = first_q["id"] if first_q else None
         
         opening = (
-            "Thank you for your time. I'm here to understand your Order-to-Cash process. "
-            f"Let's start with the basics: {first_q['question'] if first_q else 'How do orders come into your organization?'}"
+            "Thank you for your time. We're here to map and understand your end-to-end "
+            "Order-to-Cash process to identify opportunities for improvement. "
+            "Let's start at the very beginning. How does a customer order originate?"
         )
         state["conversation_history"].append(f"Bot: {opening}")
         
