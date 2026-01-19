@@ -13,126 +13,120 @@ Color coding:
 def generate_sap_gap_diagram(collected_data, gap_analysis):
     """
     Generate SAP Standard diagram with color-coding based on As-Is gaps.
-    
-    This is the SAP standard process, but nodes are colored to show:
-    - What has been captured (vs not captured)
-    - Where gaps exist vs aligned
     """
     gaps_set = {g["attribute"] for g in gap_analysis.get("gaps", [])}
     missing_set = {m["attribute"] for m in gap_analysis.get("missing", [])}
     strengths_set = {s["attribute"] for s in gap_analysis.get("strengths", [])}
     
-    def get_class(attr_key):
-        """Get color class for an attribute"""
+    def get_style(attr_key):
+        """Get inline style for an attribute"""
         if attr_key in gaps_set:
-            return "red"  # Captured but has gap
+            return "fill:#dc3545,stroke:#c82333,color:#fff"  # Red
         elif attr_key in strengths_set:
-            return "green"  # Captured and aligned
+            return "fill:#28a745,stroke:#1e7e34,color:#fff"  # Green
         elif attr_key in missing_set:
-            return "gray"  # Not yet captured
+            return "fill:#6c757d,stroke:#545b62,color:#fff"  # Gray
         else:
-            return "default"
+            return "fill:#6c757d,stroke:#545b62,color:#fff"  # Default gray
     
-    # Get actual captured values for labels
     def get_label(attr_key, default_label):
         if attr_key in collected_data:
-            val = str(collected_data[attr_key])[:25]
-            return f"{val}..."[:25] if len(val) >= 25 else val
+            val = str(collected_data[attr_key])[:20]
+            return val
         return default_label
     
+    # Track nodes and their styles
+    node_styles = []
+    
     diagram = '''graph TD
-    %% SAP Standard O2C - Color-coded by As-Is GAP Analysis
-    %% Green = Aligned | Red = Gap | Yellow = Partial | Gray = Not Captured
-    
-    classDef green fill:#28a745,stroke:#1e7e34,color:#fff
-    classDef red fill:#dc3545,stroke:#c82333,color:#fff
-    classDef yellow fill:#ffc107,stroke:#d39e00,color:#000
-    classDef gray fill:#6c757d,stroke:#545b62,color:#fff
-    classDef default fill:#6c757d,stroke:#545b62,color:#fff
-    
-    Start((Order Received)) --> IntakeChannel
 '''
     
-    # 1. Order Intake Section
-    channel_class = get_class("order_origin_channels")
-    diagram += f'    IntakeChannel{{{{"Order Channels"}}}}:::{channel_class}\n'
+    # 1. Order Channels
+    diagram += '    Start((Order Received)) --> IntakeChannel\n'
+    diagram += '    IntakeChannel{"Order Channels"}\n'
+    node_styles.append(("IntakeChannel", get_style("order_origin_channels")))
     
     # Manual intake
-    manual_class = get_class("manual_intake_method")
     manual_label = get_label("manual_intake_method", "Email/PDF/Fax")
-    diagram += f'    IntakeChannel -- Manual --> ManualIntake["{manual_label}"]:::{manual_class}\n'
+    diagram += f'    IntakeChannel -- Manual --> ManualIntake["{manual_label}"]\n'
+    node_styles.append(("ManualIntake", get_style("manual_intake_method")))
     
-    # Automated channels
-    diagram += f'    IntakeChannel -- Automated --> AutoChannel["Portal / EDI"]:::green\n'
+    # Automated
+    diagram += '    IntakeChannel -- Automated --> AutoChannel["Portal / EDI"]\n'
+    node_styles.append(("AutoChannel", "fill:#28a745,stroke:#1e7e34,color:#fff"))
     
     # Order receiver
-    receiver_class = get_class("order_receiver")
     receiver_label = get_label("order_receiver", "Order Desk Team")
-    diagram += f'    ManualIntake --> Receiver["{receiver_label}"]:::{receiver_class}\n'
-    diagram += f'    AutoChannel --> SystemEntry\n'
-    diagram += f'    Receiver --> SystemEntry\n'
+    diagram += f'    ManualIntake --> Receiver["{receiver_label}"]\n'
+    node_styles.append(("Receiver", get_style("order_receiver")))
     
-    # 2. System Entry
-    system_class = get_class("primary_order_system")
+    diagram += '    AutoChannel --> SystemEntry\n'
+    diagram += '    Receiver --> SystemEntry\n'
+    
+    # System Entry
     system_label = get_label("primary_order_system", "ERP System")
-    diagram += f'    SystemEntry["{system_label}"]:::{system_class}\n'
+    diagram += f'    SystemEntry["{system_label}"]\n'
+    node_styles.append(("SystemEntry", get_style("primary_order_system")))
     
     # Data capture
-    data_class = get_class("captured_data_fields")
-    diagram += f'    SystemEntry --> DataCapture{{{{"Data Capture"}}}}:::{data_class}\n'
+    diagram += '    SystemEntry --> DataCapture{"Data Capture"}\n'
+    node_styles.append(("DataCapture", get_style("captured_data_fields")))
     
-    # 3. Order Verification Section
-    verify_class = get_class("required_verification_fields")
-    diagram += f'    DataCapture --> Verification{{{{"Order Verification"}}}}:::{verify_class}\n'
+    # Verification
+    diagram += '    DataCapture --> Verification{"Order Verification"}\n'
+    node_styles.append(("Verification", get_style("required_verification_fields")))
     
-    # Verification methods
-    manual_verify_class = get_class("manual_data_verification")
-    auto_verify_class = get_class("automated_data_capture")
-    diagram += f'    Verification --> ManualVerify["Manual Check"]:::{manual_verify_class}\n'
-    diagram += f'    Verification --> AutoVerify["System Validation"]:::{auto_verify_class}\n'
+    diagram += '    Verification --> ManualVerify["Manual Check"]\n'
+    node_styles.append(("ManualVerify", get_style("manual_data_verification")))
     
-    # Success rate
-    success_class = get_class("verification_success_rate")
+    diagram += '    Verification --> AutoVerify["System Validation"]\n'
+    node_styles.append(("AutoVerify", get_style("automated_data_capture")))
+    
     success_label = get_label("verification_success_rate", "Success Rate")
-    diagram += f'    ManualVerify --> SuccessRate["{success_label}"]:::{success_class}\n'
-    diagram += f'    AutoVerify --> SuccessRate\n'
+    diagram += f'    ManualVerify --> SuccessRate["{success_label}"]\n'
+    diagram += '    AutoVerify --> SuccessRate\n'
+    node_styles.append(("SuccessRate", get_style("verification_success_rate")))
     
-    # Owner
-    owner_class = get_class("verification_owner")
     owner_label = get_label("verification_owner", "Verification Owner")
-    diagram += f'    SuccessRate --> Owner["{owner_label}"]:::{owner_class}\n'
-    diagram += f'    Owner --> CreditCheck\n'
+    diagram += f'    SuccessRate --> Owner["{owner_label}"]\n'
+    node_styles.append(("Owner", get_style("verification_owner")))
     
-    # 4. Credit Governance Section
-    credit_class = get_class("credit_approval_type")
-    diagram += f'    CreditCheck{{{{"Credit Governance"}}}}:::{credit_class}\n'
+    diagram += '    Owner --> CreditCheck\n'
     
-    # Auto approval
-    auto_limit_class = get_class("auto_approval_limit")
+    # Credit Governance
+    diagram += '    CreditCheck{"Credit Governance"}\n'
+    node_styles.append(("CreditCheck", get_style("credit_approval_type")))
+    
     auto_limit_label = get_label("auto_approval_limit", "< Threshold")
-    diagram += f'    CreditCheck -- "{auto_limit_label}" --> AutoApprove["Auto-Approve"]:::{auto_limit_class}\n'
+    diagram += f'    CreditCheck -- "{auto_limit_label}" --> AutoApprove["Auto-Approve"]\n'
+    node_styles.append(("AutoApprove", get_style("auto_approval_limit")))
     
-    # Manual approval
-    approver_class = get_class("manual_credit_approver")
     approver_label = get_label("manual_credit_approver", "Credit Analyst")
-    diagram += f'    CreditCheck -- "Above Limit" --> ManualApprover["{approver_label}"]:::{approver_class}\n'
+    diagram += f'    CreditCheck -- "Above Limit" --> ManualApprover["{approver_label}"]\n'
+    node_styles.append(("ManualApprover", get_style("manual_credit_approver")))
     
-    # Decision factors
-    factors_class = get_class("credit_decision_factors")
     factors_label = get_label("credit_decision_factors", "Credit Factors")
-    diagram += f'    ManualApprover --> Factors["{factors_label}"]:::{factors_class}\n'
-    diagram += f'    Factors --> Decision\n'
+    diagram += f'    ManualApprover --> Factors["{factors_label}"]\n'
+    node_styles.append(("Factors", get_style("credit_decision_factors")))
     
-    # Notifications
-    notify_sales_class = get_class("credit_decision_to_sales")
-    notify_cust_class = get_class("credit_decision_to_customer")
-    diagram += f'    Decision{{{{"Decision"}}}} --> NotifySales["Notify Sales"]:::{notify_sales_class}\n'
-    diagram += f'    Decision --> NotifyCustomer["Notify Customer"]:::{notify_cust_class}\n'
+    diagram += '    Factors --> Decision\n'
+    diagram += '    Decision{"Decision"}\n'
     
-    # End
-    diagram += f'    AutoApprove --> Released((Order Released)):::green\n'
-    diagram += f'    NotifySales --> Released\n'
-    diagram += f'    NotifyCustomer --> Released\n'
+    diagram += '    Decision --> NotifySales["Notify Sales"]\n'
+    node_styles.append(("NotifySales", get_style("credit_decision_to_sales")))
+    
+    diagram += '    Decision --> NotifyCustomer["Notify Customer"]\n'
+    node_styles.append(("NotifyCustomer", get_style("credit_decision_to_customer")))
+    
+    diagram += '    AutoApprove --> Released((Order Released))\n'
+    diagram += '    NotifySales --> Released\n'
+    diagram += '    NotifyCustomer --> Released\n'
+    node_styles.append(("Released", "fill:#28a745,stroke:#1e7e34,color:#fff"))
+    
+    # Add style statements
+    diagram += '\n'
+    for node_id, style in node_styles:
+        diagram += f'    style {node_id} {style}\n'
     
     return diagram
 
