@@ -92,8 +92,8 @@ if st.session_state.get("show_diagram", False):
     gap_diagram = generate_gap_diagram(collected, gap_result)
     gap_summary = generate_gap_summary(gap_result)
     
-    # Create tabs
-    tab1, tab2, tab3 = st.tabs(["📊 Side-by-Side Comparison", "🔴 GAP Analysis", "📝 Mermaid Code"])
+    # Create tabs (removed Mermaid Code tab for non-technical users)
+    tab1, tab2 = st.tabs(["📊 Side-by-Side Comparison", "🔴 GAP Analysis"])
     
     with tab1:
         st.subheader("As-Is Process vs SAP Standard")
@@ -123,8 +123,13 @@ if st.session_state.get("show_diagram", False):
     with tab2:
         st.subheader("🔴 GAP Analysis")
         
-        # Show alignment score
+        # Show alignment score with captured count
         score = gap_result.get("score", 0)
+        captured = gap_result.get("captured_count", 0)
+        total_req = gap_result.get("total_required", 16)
+        
+        st.caption(f"**{captured}/{total_req}** process areas captured")
+        
         if score >= 80:
             st.success(f"🟢 Alignment Score: {score}%")
         elif score >= 50:
@@ -134,29 +139,13 @@ if st.session_state.get("show_diagram", False):
         
         # Color-coded diagram
         st.markdown("### Color-Coded Process Map")
-        st.caption("🟢 Green = Aligned | 🔴 Red = Gap | 🟡 Yellow = Partial")
+        st.caption("🟢 Green = Aligned | 🔴 Red = Gap | 🟡 Yellow = Partial | ⚫ Gray = Not Captured")
         stmd.st_mermaid(gap_diagram, height=500)
         
         st.divider()
         
         # GAP Summary
         st.markdown(gap_summary)
-    
-    with tab3:
-        st.subheader("📝 Mermaid Diagram Code")
-        
-        code_col1, code_col2 = st.columns(2)
-        with code_col1:
-            st.markdown("**As-Is Process**")
-            if current_diagram:
-                st.code(current_diagram, language="mermaid")
-        with code_col2:
-            st.markdown("**SAP Standard**")
-            st.code(sap_diagram, language="mermaid")
-        
-        st.divider()
-        st.markdown("**GAP Analysis Diagram**")
-        st.code(gap_diagram, language="mermaid")
     
     st.divider()
     if st.button("🔙 Back to Chat", use_container_width=True):

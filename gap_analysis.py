@@ -14,82 +14,91 @@ def analyze_gaps(collected_data):
     """
     Analyze gaps between captured data and SAP best practices.
     
-    Returns:
-    {
-        "gaps": [list of gap items],
-        "strengths": [list of strength items],
-        "score": percentage alignment
-    }
+    Score = % of required attributes captured AND aligned.
+    Missing attributes count as gaps.
     """
     if not collected_data:
-        return {"gaps": [], "strengths": [], "score": 0}
+        return {"gaps": [], "strengths": [], "score": 0, "missing": list(SAP_BEST_PRACTICES.keys())}
     
     gaps = []
     strengths = []
+    missing = []
     
-    # Check each captured attribute against best practices
-    for attr_key, current_value in collected_data.items():
-        if attr_key in SAP_BEST_PRACTICES:
-            best_practice = SAP_BEST_PRACTICES[attr_key]
-            std = best_practice["standard"].lower()
-            current = str(current_value).lower()
-            
-            # Analyze alignment
-            gap_info = {
+    # Check ALL attributes in best practices (not just collected ones)
+    for attr_key, best_practice in SAP_BEST_PRACTICES.items():
+        if attr_key not in collected_data:
+            # Missing attribute = gap
+            missing.append({
+                "attribute": attr_key,
+                "standard": best_practice["standard"],
+                "risk": best_practice["risk_if_missing"],
+                "issue": "Not yet captured"
+            })
+            continue
+        
+        current_value = collected_data[attr_key]
+        std = best_practice["standard"].lower()
+        current = str(current_value).lower()
+        
+        # Analyze alignment
+        gap_info = {
+            "attribute": attr_key,
+            "current": current_value,
+            "standard": best_practice["standard"],
+            "risk": best_practice["risk_if_missing"]
+        }
+        
+        # Gap detection heuristics
+        is_gap = False
+        
+        # Check for manual/paper processes
+        if any(word in current for word in ["manual", "paper", "email", "spreadsheet", "excel"]):
+            if "automated" in std or "system" in std or "real-time" in std:
+                is_gap = True
+                gap_info["issue"] = "Manual process vs automated standard"
+        
+        # Check for low success rates
+        if attr_key == "verification_success_rate":
+            try:
+                rate = int(''.join(filter(str.isdigit, current[:3])))
+                if rate < 90:
+                    is_gap = True
+                    gap_info["issue"] = f"Success rate {rate}% below 95% target"
+            except:
+                pass
+        
+        # Check for missing integration
+        if any(word in current for word in ["separate", "different system", "re-key", "manual entry"]):
+            is_gap = True
+            gap_info["issue"] = "System fragmentation vs integrated approach"
+        
+        # Check credit governance
+        if attr_key in ["credit_decision_to_sales", "credit_decision_to_customer"]:
+            if any(word in current for word in ["phone", "calls", "email"]):
+                if "automated" in std or "dashboard" in std:
+                    is_gap = True
+                    gap_info["issue"] = "Manual notification vs automated alerts"
+        
+        if is_gap:
+            gaps.append(gap_info)
+        else:
+            strengths.append({
                 "attribute": attr_key,
                 "current": current_value,
-                "standard": best_practice["standard"],
-                "risk": best_practice["risk_if_missing"]
-            }
-            
-            # Simple gap detection heuristics
-            is_gap = False
-            
-            # Check for manual/paper processes
-            if any(word in current for word in ["manual", "paper", "email", "spreadsheet", "excel"]):
-                if "automated" in std or "system" in std or "real-time" in std:
-                    is_gap = True
-                    gap_info["issue"] = "Manual process vs automated standard"
-            
-            # Check for low success rates
-            if attr_key == "verification_success_rate":
-                try:
-                    rate = int(''.join(filter(str.isdigit, current[:3])))
-                    if rate < 90:
-                        is_gap = True
-                        gap_info["issue"] = f"Success rate {rate}% below 95% target"
-                except:
-                    pass
-            
-            # Check for missing integration
-            if any(word in current for word in ["separate", "different system", "re-key", "manual entry"]):
-                is_gap = True
-                gap_info["issue"] = "System fragmentation vs integrated approach"
-            
-            # Check credit governance
-            if attr_key in ["credit_decision_to_sales", "credit_decision_to_customer"]:
-                if any(word in current for word in ["phone", "calls", "email"]):
-                    if "automated" in std or "dashboard" in std:
-                        is_gap = True
-                        gap_info["issue"] = "Manual notification vs automated alerts"
-            
-            if is_gap:
-                gaps.append(gap_info)
-            else:
-                strengths.append({
-                    "attribute": attr_key,
-                    "current": current_value,
-                    "aligned": True
-                })
+                "aligned": True
+            })
     
-    # Calculate alignment score
-    total = len(gaps) + len(strengths)
-    score = int((len(strengths) / total * 100)) if total > 0 else 0
+    # Calculate alignment score: strengths / total required attributes
+    total_required = len(SAP_BEST_PRACTICES)
+    score = int((len(strengths) / total_required * 100)) if total_required > 0 else 0
     
     return {
         "gaps": gaps,
         "strengths": strengths,
-        "score": score
+        "missing": missing,
+        "score": score,
+        "captured_count": len(strengths) + len(gaps),
+        "total_required": total_required
     }
 
 
@@ -174,18 +183,32 @@ def generate_gap_summary(gap_analysis):
     """
     gaps = gap_analysis.get("gaps", [])
     strengths = gap_analysis.get("strengths", [])
+    missing = gap_analysis.get("missing", [])
     score = gap_analysis.get("score", 0)
+    captured = gap_analysis.get("captured_count", 0)
+    total_req = gap_analysis.get("total_required", 16)
     
-    summary = f"## GAP Analysis Summary\n\n"
-    summary += f"**Alignment Score: {score}%**\n\n"
+    summary = "## GAP Analysis Summary\n\n"
+    summary += f"**Progress:** {captured}/{total_req} process areas captured\n\n"
     
     if score >= 80:
         summary += "✅ **Overall: Strong alignment with SAP best practices**\n\n"
     elif score >= 50:
         summary += "⚠️ **Overall: Moderate alignment, improvement opportunities exist**\n\n"
     else:
-        summary += "🔴 **Overall: Significant gaps identified**\n\n"
+        summary += "🔴 **Overall: Continue interview to capture more process details**\n\n"
     
+    # Missing attributes (not yet captured)
+    if missing:
+        summary += "### ⚫ Not Yet Captured\n\n"
+        summary += "*Complete the interview to capture these areas:*\n\n"
+        for m in missing[:5]:  # Show first 5
+            summary += f"- {m['attribute'].replace('_', ' ').title()}\n"
+        if len(missing) > 5:
+            summary += f"- *...and {len(missing) - 5} more*\n"
+        summary += "\n"
+    
+    # Gaps in captured data
     if gaps:
         summary += "### 🔴 Gaps Identified\n\n"
         for i, gap in enumerate(gaps, 1):
@@ -200,15 +223,16 @@ def generate_gap_summary(gap_analysis):
         for s in strengths[:5]:  # Show top 5
             summary += f"- **{s['attribute'].replace('_', ' ').title()}**: {str(s['current'])[:50]}\n"
     
-    summary += "\n### 💡 Recommendations\n\n"
-    
-    if any(g["attribute"] in ["manual_intake_method", "manual_data_verification"] for g in gaps):
-        summary += "1. **Automate Manual Intake**: Consider implementing OCR/email parsing for order intake\n"
-    
-    if any(g["attribute"] in ["credit_decision_to_sales", "credit_decision_to_customer"] for g in gaps):
-        summary += "2. **Implement Automated Notifications**: Move from phone/email to dashboard-based alerts\n"
-    
-    if any("verification" in g["attribute"] for g in gaps):
-        summary += "3. **Improve Data Validation**: Add real-time validation rules in order entry\n"
+    if gaps or missing:
+        summary += "\n### 💡 Recommendations\n\n"
+        
+        if missing:
+            summary += "1. **Complete Discovery**: Continue the interview to capture all process areas\n"
+        
+        if any(g.get("attribute") in ["manual_intake_method", "manual_data_verification"] for g in gaps):
+            summary += "2. **Automate Manual Intake**: Consider implementing OCR/email parsing\n"
+        
+        if any(g.get("attribute") in ["credit_decision_to_sales", "credit_decision_to_customer"] for g in gaps):
+            summary += "3. **Implement Automated Notifications**: Move from phone/email to dashboard alerts\n"
     
     return summary
