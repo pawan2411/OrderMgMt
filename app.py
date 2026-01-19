@@ -75,32 +75,59 @@ st.markdown("I'm a consultant here to understand your end-to-end Order-to-Cash p
 # Show Process Diagram if requested
 if st.session_state.get("show_diagram", False):
     from diagram_generator import generate_process_diagram, get_simple_diagram
+    from sap_standard import get_sap_standard_diagram
     import streamlit_mermaid as stmd
     
-    st.subheader("🔄 Captured Process Flow")
+    st.subheader("🔄 Process Comparison: Current State vs SAP Standard")
+    
+    # Slider to adjust column widths
+    col_ratio = st.slider(
+        "Adjust view ratio",
+        min_value=20,
+        max_value=80,
+        value=50,
+        help="Slide to resize columns. Left = Current State, Right = SAP Standard"
+    )
     
     collected = st.session_state.get("order_state", {}).get("collected_data", {})
     
-    # Generate diagram
-    diagram = generate_process_diagram(collected)
-    if not diagram:
-        diagram = get_simple_diagram(collected)
+    # Generate current state diagram
+    current_diagram = generate_process_diagram(collected)
+    if not current_diagram:
+        current_diagram = get_simple_diagram(collected)
     
-    if diagram:
-        stmd.st_mermaid(diagram, height=500)
-        
-        # Show raw mermaid code in expander
-        with st.expander("📝 View Mermaid Code"):
-            st.code(diagram, language="mermaid")
-        
-        if st.button("🔙 Back to Chat"):
-            st.session_state["show_diagram"] = False
-            st.rerun()
-    else:
-        st.warning("Not enough data captured yet to generate a diagram.")
-        if st.button("🔙 Back to Chat"):
-            st.session_state["show_diagram"] = False
-            st.rerun()
+    # Get SAP standard diagram
+    sap_diagram = get_sap_standard_diagram(detailed=True)
+    
+    # Create two columns with adjustable widths
+    col1, col2 = st.columns([col_ratio, 100 - col_ratio])
+    
+    with col1:
+        st.markdown("### 📊 Current State")
+        if current_diagram:
+            stmd.st_mermaid(current_diagram, height=600)
+        else:
+            st.info("Not enough data captured yet.")
+    
+    with col2:
+        st.markdown("### 🏢 SAP Standard O2C")
+        stmd.st_mermaid(sap_diagram, height=600)
+    
+    st.divider()
+    
+    # Show raw mermaid code in expanders
+    exp_col1, exp_col2 = st.columns(2)
+    with exp_col1:
+        with st.expander("📝 Current State Mermaid Code"):
+            if current_diagram:
+                st.code(current_diagram, language="mermaid")
+    with exp_col2:
+        with st.expander("📝 SAP Standard Mermaid Code"):
+            st.code(sap_diagram, language="mermaid")
+    
+    if st.button("🔙 Back to Chat", use_container_width=True):
+        st.session_state["show_diagram"] = False
+        st.rerun()
 else:
     # Initialize Orchestrator only after API key is set
     if api_key:
