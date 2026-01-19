@@ -1,3 +1,4 @@
-streamlit
-pyyaml
 openai
+pyyaml
+streamlit
+streamlit-mermaid

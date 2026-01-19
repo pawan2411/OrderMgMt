@@ -59,6 +59,12 @@ with st.sidebar:
                 for attr, value in collected.items():
                     display_val = str(value)[:60] + "..." if len(str(value)) > 60 else str(value)
                     st.write(f"**{attr}:** {display_val}")
+        
+        # View Process Diagram button
+        if len(collected) >= 3:
+            st.divider()
+            if st.button("📊 View Process Diagram", use_container_width=True):
+                st.session_state["show_diagram"] = True
     else:
         st.info("Start the conversation to begin process discovery.")
 
@@ -66,57 +72,87 @@ with st.sidebar:
 st.title("📋 Order-to-Cash Process Discovery")
 st.markdown("I'm a consultant here to understand your end-to-end Order-to-Cash process.")
 
-# Initialize Orchestrator only after API key is set
-if api_key:
-    from orchestrator import Orchestrator
+# Show Process Diagram if requested
+if st.session_state.get("show_diagram", False):
+    from diagram_generator import generate_process_diagram, get_simple_diagram
+    import streamlit_mermaid as stmd
     
-    if "orchestrator" not in st.session_state:
-        st.session_state.orchestrator = Orchestrator()
-
-    # Initialize Chat History with opening message
-    if "messages" not in st.session_state:
-        st.session_state.messages = []
-        # Start the conversation with opening message
-        from order_mgmt import OrderManager
-        mgr = OrderManager()
-        opening, state = mgr.start_conversation()
-        st.session_state.messages.append({"role": "assistant", "content": opening})
-        st.session_state["order_state"] = state
-        st.session_state["mode"] = "ORDER_MGMT"
-
-    # Display chat messages from history
-    for message in st.session_state.messages:
-        with st.chat_message(message["role"]):
-            st.markdown(message["content"])
-
-    # Accept user input
-    if prompt := st.chat_input("Describe your order process..."):
-        # Add user message to chat history
-        st.session_state.messages.append({"role": "user", "content": prompt})
+    st.subheader("🔄 Captured Process Flow")
+    
+    collected = st.session_state.get("order_state", {}).get("collected_data", {})
+    
+    # Generate diagram
+    diagram = generate_process_diagram(collected)
+    if not diagram:
+        diagram = get_simple_diagram(collected)
+    
+    if diagram:
+        stmd.st_mermaid(diagram, height=500)
         
-        # Display user message
-        with st.chat_message("user"):
-            st.markdown(prompt)
-
-        # Display assistant response
-        with st.chat_message("assistant"):
-            message_placeholder = st.empty()
-            full_response = ""
-            
-            # Call Orchestrator
-            response = st.session_state.orchestrator.handle_message(prompt, st.session_state)
-            
-            # Simulate typing effect
-            for chunk in response.split():
-                full_response += chunk + " "
-                time.sleep(0.02)
-                message_placeholder.markdown(full_response + "▌")
-            message_placeholder.markdown(full_response)
-            
-        # Add assistant response to chat history
-        st.session_state.messages.append({"role": "assistant", "content": full_response})
+        # Show raw mermaid code in expander
+        with st.expander("📝 View Mermaid Code"):
+            st.code(diagram, language="mermaid")
         
-        # Rerun to update sidebar
-        st.rerun()
+        if st.button("🔙 Back to Chat"):
+            st.session_state["show_diagram"] = False
+            st.rerun()
+    else:
+        st.warning("Not enough data captured yet to generate a diagram.")
+        if st.button("🔙 Back to Chat"):
+            st.session_state["show_diagram"] = False
+            st.rerun()
 else:
-    st.info("👈 Please enter your Together AI API key in the sidebar to start the conversation.")
+    # Initialize Orchestrator only after API key is set
+    if api_key:
+        from orchestrator import Orchestrator
+        
+        if "orchestrator" not in st.session_state:
+            st.session_state.orchestrator = Orchestrator()
+
+        # Initialize Chat History with opening message
+        if "messages" not in st.session_state:
+            st.session_state.messages = []
+            # Start the conversation with opening message
+            from order_mgmt import OrderManager
+            mgr = OrderManager()
+            opening, state = mgr.start_conversation()
+            st.session_state.messages.append({"role": "assistant", "content": opening})
+            st.session_state["order_state"] = state
+            st.session_state["mode"] = "ORDER_MGMT"
+
+        # Display chat messages from history
+        for message in st.session_state.messages:
+            with st.chat_message(message["role"]):
+                st.markdown(message["content"])
+
+        # Accept user input
+        if prompt := st.chat_input("Describe your order process..."):
+            # Add user message to chat history
+            st.session_state.messages.append({"role": "user", "content": prompt})
+            
+            # Display user message
+            with st.chat_message("user"):
+                st.markdown(prompt)
+
+            # Display assistant response
+            with st.chat_message("assistant"):
+                message_placeholder = st.empty()
+                full_response = ""
+                
+                # Call Orchestrator
+                response = st.session_state.orchestrator.handle_message(prompt, st.session_state)
+                
+                # Simulate typing effect
+                for chunk in response.split():
+                    full_response += chunk + " "
+                    time.sleep(0.02)
+                    message_placeholder.markdown(full_response + "▌")
+                message_placeholder.markdown(full_response)
+                
+            # Add assistant response to chat history
+            st.session_state.messages.append({"role": "assistant", "content": full_response})
+            
+            # Rerun to update sidebar
+            st.rerun()
+    else:
+        st.info("👈 Please enter your Together AI API key in the sidebar to start the conversation.")
