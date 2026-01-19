@@ -74,56 +74,51 @@ st.markdown("I'm a consultant here to understand your end-to-end Order-to-Cash p
 
 # Show Process Diagram if requested
 if st.session_state.get("show_diagram", False):
-    from diagram_generator import generate_process_diagram, get_simple_diagram
-    from sap_standard import get_sap_standard_diagram
-    from gap_analysis import analyze_gaps, generate_gap_diagram, generate_gap_summary
+    from sap_gap_diagram import generate_sap_gap_diagram, get_legend
+    from gap_analysis import analyze_gaps, generate_gap_summary
     import streamlit_mermaid as stmd
     
     collected = st.session_state.get("order_state", {}).get("collected_data", {})
     
-    # Generate diagrams
-    current_diagram = generate_process_diagram(collected)
-    if not current_diagram:
-        current_diagram = get_simple_diagram(collected)
-    sap_diagram = get_sap_standard_diagram(detailed=True)
-    
     # Run GAP analysis
     gap_result = analyze_gaps(collected)
-    gap_diagram = generate_gap_diagram(collected, gap_result)
     gap_summary = generate_gap_summary(gap_result)
     
-    # Create tabs (removed Mermaid Code tab for non-technical users)
-    tab1, tab2 = st.tabs(["📊 Side-by-Side Comparison", "🔴 GAP Analysis"])
+    # Generate color-coded SAP diagram based on gaps
+    sap_gap_diagram = generate_sap_gap_diagram(collected, gap_result)
+    
+    # Create tabs
+    tab1, tab2 = st.tabs(["📊 Process GAP View", "📝 GAP Summary"])
     
     with tab1:
-        st.subheader("As-Is Process vs SAP Standard")
+        st.subheader("SAP Standard Process - Color-Coded by As-Is GAPs")
         
-        # Slider to adjust column widths
-        col_ratio = st.slider(
-            "Adjust view ratio",
-            min_value=20,
-            max_value=80,
-            value=50,
-            help="Slide to resize columns. Left = As-Is, Right = SAP Standard"
-        )
+        # Show score and legend
+        score = gap_result.get("score", 0)
+        captured = gap_result.get("captured_count", 0)
+        total_req = gap_result.get("total_required", 16)
         
-        col1, col2 = st.columns([col_ratio, 100 - col_ratio])
-        
+        col1, col2 = st.columns([1, 2])
         with col1:
-            st.markdown("### 📊 As-Is Process")
-            if current_diagram:
-                stmd.st_mermaid(current_diagram, height=550)
+            if score >= 80:
+                st.success(f"🟢 Alignment: {score}%")
+            elif score >= 50:
+                st.warning(f"🟡 Alignment: {score}%")
             else:
-                st.info("Not enough data captured yet.")
-        
+                st.error(f"🔴 Alignment: {score}%")
         with col2:
-            st.markdown("### 🏢 SAP Standard")
-            stmd.st_mermaid(sap_diagram, height=550)
+            st.caption(f"**{captured}/{total_req}** process areas captured")
+        
+        # Legend
+        st.markdown(get_legend())
+        
+        # The color-coded SAP diagram
+        stmd.st_mermaid(sap_gap_diagram, height=650)
     
     with tab2:
-        st.subheader("🔴 GAP Analysis")
+        st.subheader("📝 GAP Analysis Summary")
         
-        # Show alignment score with captured count
+        # Score display
         score = gap_result.get("score", 0)
         captured = gap_result.get("captured_count", 0)
         total_req = gap_result.get("total_required", 16)
@@ -139,7 +134,7 @@ if st.session_state.get("show_diagram", False):
         
         st.divider()
         
-        # GAP Summary only (no diagram)
+        # GAP Summary
         st.markdown(gap_summary)
     
     st.divider()
