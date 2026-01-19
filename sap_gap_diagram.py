@@ -35,7 +35,8 @@ def generate_sap_gap_diagram(collected_data, gap_analysis):
     system_label = get_label("primary_order_system", "ERP System")
     approver_label = get_label("manual_credit_approver", "Credit Analyst")
     
-    diagram = f'''graph TB
+    diagram = f'''%%{{init: {{'theme': 'default', 'themeVariables': {{ 'lineColor': '#333333', 'primaryTextColor': '#000000', 'primaryBorderColor': '#333333' }}}}}}%%
+graph TB
     subgraph Customer["Customer"]
         C_Start((Start)) --> C_Order["Place Order"]
         C_Order --> C_Method{{"Channel"}}

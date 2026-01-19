@@ -112,12 +112,19 @@ if st.session_state.get("show_diagram", False):
         # Legend inline
         st.markdown("**Legend:** 🟢 Aligned | 🔴 Gap | ⚫ Not Captured")
         
-        # The color-coded SAP diagram with white background
+        # Add CSS for light background diagram container
         st.markdown("""
-        <div style="background-color: #ffffff; padding: 20px; border-radius: 15px; margin: 10px 0;">
+        <style>
+            iframe[title="streamlit_mermaid.st_mermaid"] {
+                background-color: #f8f9fa !important;
+                border-radius: 10px;
+                padding: 10px;
+            }
+        </style>
         """, unsafe_allow_html=True)
+        
+        # The color-coded SAP diagram
         stmd.st_mermaid(sap_gap_diagram, height=600)
-        st.markdown("</div>", unsafe_allow_html=True)
     
     with tab2:
         st.subheader("📝 GAP Analysis Summary")
