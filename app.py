@@ -137,14 +137,9 @@ if st.session_state.get("show_diagram", False):
         else:
             st.error(f"🔴 Alignment Score: {score}%")
         
-        # Color-coded diagram
-        st.markdown("### Color-Coded Process Map")
-        st.caption("🟢 Green = Aligned | 🔴 Red = Gap | 🟡 Yellow = Partial | ⚫ Gray = Not Captured")
-        stmd.st_mermaid(gap_diagram, height=500)
-        
         st.divider()
         
-        # GAP Summary
+        # GAP Summary only (no diagram)
         st.markdown(gap_summary)
     
     st.divider()
