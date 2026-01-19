@@ -1,132 +1,161 @@
 """
 SAP Standard Order-to-Cash (O2C) Process Diagram
-
-Based on SAP ERP best practices and standard O2C flow:
-1. Pre-Sales Activities
-2. Sales Order Processing  
-3. Credit Management
-4. Availability Check
-5. Delivery Processing
-6. Picking & Packing
-7. Post Goods Issue (PGI)
-8. Shipping
-9. Billing
-10. Accounts Receivable & Payment
+Limited to scope covered by chatbot:
+1. Order Intake/Capturing
+2. Order Verification (Commercial Validation)
+3. Credit Governance
 """
 
+# Pre-stored SAP Standard diagram - matches chatbot scope
 SAP_STANDARD_O2C_DIAGRAM = '''graph TD
-    %% SAP Standard Order-to-Cash Process
+    %% SAP Standard: Order Intake, Verification, Credit Governance
     
-    subgraph "1. Pre-Sales"
-    Inquiry[Customer Inquiry] --> Quotation[Create Quotation]
-    Quotation --> QuoteApproval{Quote Accepted?}
+    subgraph "1. Order Intake"
+    Start((Order Received)) --> Channel{Order Channel}
+    
+    Channel -- EDI --> EDIProcess[EDI Processing - IDOC]
+    Channel -- Portal --> PortalOrder[B2B Web Order]
+    Channel -- Manual --> ManualEntry[Manual Entry - VA01]
+    
+    EDIProcess --> OrderCreate[Sales Order Created]
+    PortalOrder --> OrderCreate
+    ManualEntry --> OrderCreate
+    
+    OrderCreate --> Timestamp[Timestamp Recorded]
+    Timestamp --> Confirmation[Order Confirmation Sent]
     end
     
-    subgraph "2. Sales Order Processing"
-    QuoteApproval -- Yes --> SalesOrder[Create Sales Order - VA01]
-    SalesOrder --> OrderConf[Order Confirmation to Customer]
+    subgraph "2. Order Verification"
+    OrderCreate --> SKUCheck{SKU Validation}
+    SKUCheck -- Valid --> QtyCheck{Quantity Available - ATP}
+    SKUCheck -- Invalid --> SKUError[Error: Invalid Material]
+    
+    QtyCheck -- Available --> PriceCheck{Pricing Validation}
+    QtyCheck -- Not Available --> BackOrder[Backorder Created]
+    
+    PriceCheck -- Valid --> FOBCheck[FOB Terms Verified]
+    PriceCheck -- Error --> PriceError[Price Discrepancy Alert]
+    
+    FOBCheck --> VerificationComplete[Order Data Complete]
     end
     
-    subgraph "3. Credit & Availability Check"
-    SalesOrder --> CreditCheck{Credit Check - VKM1}
-    CreditCheck -- Blocked --> CreditRelease[Credit Manager Release]
-    CreditRelease --> ATPCheck
-    CreditCheck -- Passed --> ATPCheck{ATP Check}
-    ATPCheck -- Available --> Delivery
-    ATPCheck -- Not Available --> BackOrder[Backorder Processing]
-    BackOrder --> MRP[MRP/Production Planning]
-    MRP --> ATPCheck
-    end
+    subgraph "3. Credit Governance"
+    VerificationComplete --> CreditCheck{Credit Check - VKM1}
     
-    subgraph "4. Delivery Processing"
-    Delivery[Create Outbound Delivery - VL01N]
-    Delivery --> Picking[Picking - LT03]
-    Picking --> Packing[Packing - VL02N]
-    end
+    CreditCheck -- "Under Limit" --> AutoApprove[Auto-Approve & Release]
+    CreditCheck -- "Over Limit" --> CreditQueue[Credit Block Queue]
     
-    subgraph "5. Goods Issue & Shipping"
-    Packing --> PGI[Post Goods Issue - VL02N]
-    PGI --> ShipDoc[Shipment Document - VT01N]
-    ShipDoc --> CarrierLabel[Carrier Label & Tracking]
-    CarrierLabel --> ASN[Send ASN to Customer]
-    end
+    CreditQueue --> CreditAnalyst[Credit Analyst Review]
+    CreditAnalyst --> CheckDB[Check D&B / Credit Score]
+    CheckDB --> ReviewAR[Review AR Balance & History]
+    ReviewAR --> CreditDecision{Decision}
     
-    subgraph "6. Billing"
-    PGI --> BillingDue[Billing Due List - VF04]
-    BillingDue --> Invoice[Create Invoice - VF01]
-    Invoice --> OutputInv[Send Invoice to Customer]
-    Invoice --> AcctDoc[Accounting Document - FI]
-    end
+    CreditDecision -- Approve --> ManualRelease[Release Order]
+    CreditDecision -- Reject --> Reject[Order Rejected]
+    CreditDecision -- Conditional --> Conditional[Conditional Approval]
     
-    subgraph "7. Accounts Receivable"
-    AcctDoc --> AR[Accounts Receivable - FBL5N]
-    AR --> Payment{Payment Received?}
-    Payment -- Yes --> CashApp[Cash Application - F-28]
-    Payment -- No --> Dunning[Dunning Process - F150]
-    Dunning --> Collections[Collections Management]
-    Collections --> Payment
-    CashApp --> Cleared[Invoice Cleared]
-    end
+    ManualRelease --> NotifySales[Notify Sales Rep]
+    Conditional --> NotifySales
+    Reject --> NotifySales
     
-    %% End
-    Cleared --> Complete((O2C Complete))
-    ASN --> Complete
+    NotifySales --> NotifyCustomer[Notify Customer]
+    
+    AutoApprove --> Released((Order Released))
+    ManualRelease --> Released
+    Conditional --> Released
+    end
 '''
 
+# Simplified version for smaller displays
 SAP_STANDARD_SIMPLE = '''graph LR
-    A[Inquiry] --> B[Quotation]
-    B --> C[Sales Order]
-    C --> D{Credit Check}
-    D --> E{ATP Check}
-    E --> F[Delivery]
-    F --> G[Picking]
-    G --> H[Packing]
-    H --> I[Goods Issue]
-    I --> J[Shipping]
-    I --> K[Billing]
-    K --> L[Invoice]
-    L --> M[Payment]
-    M --> N[Cash Applied]
+    A[Order Received] --> B{Channel}
+    B --> C[EDI/Portal/Manual]
+    C --> D[Order Created]
+    D --> E{SKU Valid?}
+    E --> F{Qty Available?}
+    F --> G{Price Valid?}
+    G --> H{Credit Check}
+    H -- Auto --> I[Released]
+    H -- Manual --> J[Credit Review]
+    J --> K{Decision}
+    K --> L[Notify Customer]
 '''
 
 
 def get_sap_standard_diagram(detailed=True):
     """
     Returns the SAP standard O2C process diagram.
-    
-    detailed: If True, returns full diagram with subgraphs.
-              If False, returns simplified linear flow.
+    Pre-stored, not generated on the fly.
     """
     if detailed:
         return SAP_STANDARD_O2C_DIAGRAM
     return SAP_STANDARD_SIMPLE
 
 
-def get_comparison_info():
-    """
-    Returns information about SAP standard process for comparison.
-    """
-    return {
-        "stages": [
-            "Pre-Sales (Inquiry, Quotation)",
-            "Sales Order Processing (VA01)",
-            "Credit Management (VKM1)",
-            "Availability Check (ATP)",
-            "Delivery Processing (VL01N)",
-            "Picking (LT03) & Packing",
-            "Post Goods Issue (PGI)",
-            "Shipping (VT01N)",
-            "Billing (VF01)",
-            "Accounts Receivable (FBL5N)",
-            "Cash Application (F-28)"
-        ],
-        "key_tcodes": {
-            "VA01": "Create Sales Order",
-            "VL01N": "Create Outbound Delivery",
-            "VL02N": "Change Delivery / Post GI",
-            "VF01": "Create Billing Document",
-            "VKM1": "Credit Management",
-            "F-28": "Incoming Payment",
-            "FBL5N": "Customer Line Items"
-        }
+# Best practices for each area (used in GAP analysis)
+SAP_BEST_PRACTICES = {
+    "order_origin_channels": {
+        "standard": "Multi-channel: EDI for large accounts, B2B portal for mid-market, Manual entry as exception",
+        "risk_if_missing": "Delayed order processing, manual data entry errors"
+    },
+    "manual_intake_method": {
+        "standard": "Digitized intake via scanning/OCR, auto-create from email attachments",
+        "risk_if_missing": "Manual transcription errors, slow processing"
+    },
+    "order_receiver": {
+        "standard": "Dedicated Order Desk team with SLA-based queues",
+        "risk_if_missing": "Orders lost in shared inboxes, unclear ownership"
+    },
+    "captured_data_fields": {
+        "standard": "Customer ID, Material, Quantity, Price, Delivery Date, Ship-to, Payment Terms, PO Number",
+        "risk_if_missing": "Incomplete orders requiring follow-up"
+    },
+    "primary_order_system": {
+        "standard": "Integrated ERP (SAP S/4HANA) with real-time validation",
+        "risk_if_missing": "Data silos, manual reconciliation needed"
+    },
+    "manual_data_verification": {
+        "standard": "Required field validation in ERP before save",
+        "risk_if_missing": "Incomplete orders progressing to fulfillment"
+    },
+    "automated_data_capture": {
+        "standard": "100% validation - all required fields enforced before submission",
+        "risk_if_missing": "Downstream errors and exceptions"
+    },
+    "required_verification_fields": {
+        "standard": "Customer, Material, Qty, Price, Delivery Date, Ship-to, Credit Status",
+        "risk_if_missing": "Invalid orders reaching fulfillment"
+    },
+    "verification_success_rate": {
+        "standard": ">95% first-pass success rate",
+        "risk_if_missing": "High rework and exception handling costs"
+    },
+    "verification_owner": {
+        "standard": "System auto-validates, exceptions to Order Desk",
+        "risk_if_missing": "Undefined accountability, delays"
+    },
+    "credit_approval_type": {
+        "standard": "Automated credit scoring with rule-based limits",
+        "risk_if_missing": "Inconsistent credit decisions"
+    },
+    "auto_approval_limit": {
+        "standard": "Customer-specific based on credit score and history",
+        "risk_if_missing": "One-size-fits-all limits may be too conservative or risky"
+    },
+    "manual_credit_approver": {
+        "standard": "Credit Analyst with defined authority matrix",
+        "risk_if_missing": "Approval bottlenecks, unclear escalation"
+    },
+    "credit_decision_factors": {
+        "standard": "AR balance, DSO, Payment history, Credit score, Open orders value",
+        "risk_if_missing": "Incomplete risk assessment"
+    },
+    "credit_decision_to_sales": {
+        "standard": "Real-time dashboard notification + email",
+        "risk_if_missing": "Sales unaware of order status"
+    },
+    "credit_decision_to_customer": {
+        "standard": "Automated notification via preferred channel",
+        "risk_if_missing": "Poor customer experience, no visibility"
     }
+}

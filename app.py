@@ -76,55 +76,89 @@ st.markdown("I'm a consultant here to understand your end-to-end Order-to-Cash p
 if st.session_state.get("show_diagram", False):
     from diagram_generator import generate_process_diagram, get_simple_diagram
     from sap_standard import get_sap_standard_diagram
+    from gap_analysis import analyze_gaps, generate_gap_diagram, generate_gap_summary
     import streamlit_mermaid as stmd
-    
-    st.subheader("🔄 Process Comparison: Current State vs SAP Standard")
-    
-    # Slider to adjust column widths
-    col_ratio = st.slider(
-        "Adjust view ratio",
-        min_value=20,
-        max_value=80,
-        value=50,
-        help="Slide to resize columns. Left = Current State, Right = SAP Standard"
-    )
     
     collected = st.session_state.get("order_state", {}).get("collected_data", {})
     
-    # Generate current state diagram
+    # Generate diagrams
     current_diagram = generate_process_diagram(collected)
     if not current_diagram:
         current_diagram = get_simple_diagram(collected)
-    
-    # Get SAP standard diagram
     sap_diagram = get_sap_standard_diagram(detailed=True)
     
-    # Create two columns with adjustable widths
-    col1, col2 = st.columns([col_ratio, 100 - col_ratio])
+    # Run GAP analysis
+    gap_result = analyze_gaps(collected)
+    gap_diagram = generate_gap_diagram(collected, gap_result)
+    gap_summary = generate_gap_summary(gap_result)
     
-    with col1:
-        st.markdown("### 📊 Current State")
-        if current_diagram:
-            stmd.st_mermaid(current_diagram, height=600)
+    # Create tabs
+    tab1, tab2, tab3 = st.tabs(["📊 Side-by-Side Comparison", "🔴 GAP Analysis", "📝 Mermaid Code"])
+    
+    with tab1:
+        st.subheader("As-Is Process vs SAP Standard")
+        
+        # Slider to adjust column widths
+        col_ratio = st.slider(
+            "Adjust view ratio",
+            min_value=20,
+            max_value=80,
+            value=50,
+            help="Slide to resize columns. Left = As-Is, Right = SAP Standard"
+        )
+        
+        col1, col2 = st.columns([col_ratio, 100 - col_ratio])
+        
+        with col1:
+            st.markdown("### 📊 As-Is Process")
+            if current_diagram:
+                stmd.st_mermaid(current_diagram, height=550)
+            else:
+                st.info("Not enough data captured yet.")
+        
+        with col2:
+            st.markdown("### 🏢 SAP Standard")
+            stmd.st_mermaid(sap_diagram, height=550)
+    
+    with tab2:
+        st.subheader("🔴 GAP Analysis")
+        
+        # Show alignment score
+        score = gap_result.get("score", 0)
+        if score >= 80:
+            st.success(f"🟢 Alignment Score: {score}%")
+        elif score >= 50:
+            st.warning(f"🟡 Alignment Score: {score}%")
         else:
-            st.info("Not enough data captured yet.")
+            st.error(f"🔴 Alignment Score: {score}%")
+        
+        # Color-coded diagram
+        st.markdown("### Color-Coded Process Map")
+        st.caption("🟢 Green = Aligned | 🔴 Red = Gap | 🟡 Yellow = Partial")
+        stmd.st_mermaid(gap_diagram, height=500)
+        
+        st.divider()
+        
+        # GAP Summary
+        st.markdown(gap_summary)
     
-    with col2:
-        st.markdown("### 🏢 SAP Standard O2C")
-        stmd.st_mermaid(sap_diagram, height=600)
-    
-    st.divider()
-    
-    # Show raw mermaid code in expanders
-    exp_col1, exp_col2 = st.columns(2)
-    with exp_col1:
-        with st.expander("📝 Current State Mermaid Code"):
+    with tab3:
+        st.subheader("📝 Mermaid Diagram Code")
+        
+        code_col1, code_col2 = st.columns(2)
+        with code_col1:
+            st.markdown("**As-Is Process**")
             if current_diagram:
                 st.code(current_diagram, language="mermaid")
-    with exp_col2:
-        with st.expander("📝 SAP Standard Mermaid Code"):
+        with code_col2:
+            st.markdown("**SAP Standard**")
             st.code(sap_diagram, language="mermaid")
+        
+        st.divider()
+        st.markdown("**GAP Analysis Diagram**")
+        st.code(gap_diagram, language="mermaid")
     
+    st.divider()
     if st.button("🔙 Back to Chat", use_container_width=True):
         st.session_state["show_diagram"] = False
         st.rerun()
