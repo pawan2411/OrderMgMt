@@ -273,8 +273,8 @@ def generate_crt_diagram(toc_analysis):
         return label
     
     # Build the Mermaid diagram - using simple syntax for cloud compatibility
-    # Use TB (top-bottom) for better vertical space utilization
-    diagram = "graph TB\n"
+    # Use LR (left-right) for better horizontal space utilization
+    diagram = "graph LR\n"
     
     # Add Root Cause nodes first (top of tree in TB layout) - use hexagon for emphasis
     for rc in root_causes:

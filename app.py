@@ -186,7 +186,7 @@ if st.session_state.get("show_diagram", False):
                 st.code(crt_diagram, language="mermaid")
             
             # Use streamlit-mermaid for reliable rendering on both local and cloud
-            stmd.st_mermaid(crt_diagram, height=800)
+            stmd.st_mermaid(crt_diagram, height=500)
         else:
             st.warning("Unable to generate Current Reality Tree. Please complete more of the conversation.")
             # Debug: Show what toc_result contains
