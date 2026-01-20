@@ -47,6 +47,7 @@ Follow these rules:
 - Identify 3-5 Intermediate Effects that explain the causal chain
 - Identify 2-4 Root Causes that are the fundamental issues
 - Create logical cause-effect connections (from root causes UP to UDEs)
+- always show connections
 
 Return your analysis as JSON in this exact format:
 {
