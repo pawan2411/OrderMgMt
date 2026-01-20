@@ -214,16 +214,23 @@ if st.session_state.get("show_diagram", False):
             with st.expander("🔧 Debug: View Mermaid Code", expanded=False):
                 st.code(crt_diagram, language="mermaid")
             
-            # Use streamlit-mermaid for reliable rendering on both local and cloud
-            try:
-                # Add unique key based on diagram content to force re-render
-                import hashlib
-                diagram_key = hashlib.md5(crt_diagram.encode()).hexdigest()[:8]
-                stmd.st_mermaid(crt_diagram, height=500, key=f"crt_{diagram_key}")
-            except Exception as e:
-                st.error(f"Mermaid rendering error: {e}")
-                st.info("Displaying raw diagram code as fallback:")
-                st.code(crt_diagram, language="mermaid")
+            # Use mermaid.ink API to render diagram as image (works reliably on cloud)
+            import base64
+            import urllib.parse
+            
+            # Encode diagram for mermaid.ink URL
+            diagram_bytes = crt_diagram.encode('utf-8')
+            diagram_base64 = base64.urlsafe_b64encode(diagram_bytes).decode('utf-8')
+            
+            # mermaid.ink renders the diagram as SVG
+            mermaid_url = f"https://mermaid.ink/svg/{diagram_base64}"
+            
+            # Display as image with light background container
+            st.markdown(f'''
+            <div style="background-color: #f8f9fa; border-radius: 10px; padding: 20px; text-align: center;">
+                <img src="{mermaid_url}" style="max-width: 100%; height: auto;" alt="Current Reality Tree Diagram"/>
+            </div>
+            ''', unsafe_allow_html=True)
         else:
             st.warning("Unable to generate Current Reality Tree. Please complete more of the conversation.")
             # Debug: Show what toc_result contains
