@@ -227,7 +227,7 @@ if st.session_state.get("show_diagram", False):
             
             # Display as image with light background container
             st.markdown(f'''
-            <div style="background-color: #f8f9fa; border-radius: 10px; padding: 20px; text-align: center;">
+            <div style="background-color: #e0e0e0; border-radius: 10px; padding: 20px; text-align: center;">
                 <img src="{mermaid_url}" style="max-width: 100%; height: auto;" alt="Current Reality Tree Diagram"/>
             </div>
             ''', unsafe_allow_html=True)
