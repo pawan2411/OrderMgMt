@@ -272,39 +272,27 @@ def generate_crt_diagram(toc_analysis):
             label = label[:57] + "..."
         return label
     
-    # Build the Mermaid diagram
-    diagram = """graph BT
-    %% Define styles
-    classDef ude fill:#ffcccc,stroke:#ff0000,stroke-width:2px,color:black,font-weight:bold;
-    classDef rootcause fill:#e1ecf4,stroke:#74a9cf,stroke-width:1px,color:black;
-    classDef intermediate fill:#ffffff,stroke:#333333,stroke-width:1px,color:black;
-
-    %% --- Undesirable Effects (UDEs) ---
-"""
+    # Build the Mermaid diagram - using simple syntax for cloud compatibility
+    diagram = "graph BT\n"
     
-    # Add UDE nodes
+    # Add UDE nodes (top of tree) - use double brackets for rounded rectangle
     for ude in udes:
         node_id = ude.get("id", "UDE")
         label = sanitize_label(ude.get("label", "Undesirable Effect"))
-        diagram += f'    {node_id}["{node_id}: {label}"]:::ude\n'
+        # Use stadium shape for UDEs
+        diagram += f'    {node_id}(["{node_id}: {label}"])\n'
     
-    diagram += "\n    %% --- Intermediate Effects ---\n"
-    
-    # Add Intermediate Effect nodes
+    # Add Intermediate Effect nodes - use parentheses for rounded shape
     for ie in intermediate:
         node_id = ie.get("id", "I")
         label = sanitize_label(ie.get("label", "Intermediate Effect"))
-        diagram += f'    {node_id}("{label}"):::intermediate\n'
+        diagram += f'    {node_id}("{label}")\n'
     
-    diagram += "\n    %% --- Root Causes ---\n"
-    
-    # Add Root Cause nodes
+    # Add Root Cause nodes - use hexagon for emphasis
     for rc in root_causes:
         node_id = rc.get("id", "RC")
         label = sanitize_label(rc.get("label", "Root Cause"))
-        diagram += f'    {node_id}["{node_id}: {label}"]:::rootcause\n'
-    
-    diagram += "\n    %% --- Causal Connections ---\n"
+        diagram += f'    {node_id}{{{{{node_id}: {label}}}}}\n'
     
     # Add connections
     for conn in connections:
@@ -312,6 +300,20 @@ def generate_crt_diagram(toc_analysis):
         to_id = conn.get("to", "")
         if from_id and to_id:
             diagram += f'    {from_id} --> {to_id}\n'
+    
+    # Add styles at the end using style directive (more compatible)
+    diagram += "\n"
+    for ude in udes:
+        node_id = ude.get("id", "UDE")
+        diagram += f'    style {node_id} fill:#ffcccc,stroke:#ff0000,stroke-width:2px\n'
+    
+    for ie in intermediate:
+        node_id = ie.get("id", "I")
+        diagram += f'    style {node_id} fill:#ffffff,stroke:#333333,stroke-width:1px\n'
+    
+    for rc in root_causes:
+        node_id = rc.get("id", "RC")
+        diagram += f'    style {node_id} fill:#e1ecf4,stroke:#74a9cf,stroke-width:2px\n'
     
     return diagram
 
