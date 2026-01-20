@@ -81,17 +81,40 @@ if st.session_state.get("show_diagram", False):
     
     collected = st.session_state.get("order_state", {}).get("collected_data", {})
     
-    # Run GAP analysis
-    gap_result = analyze_gaps(collected)
-    gap_summary = generate_gap_summary(gap_result)
+    # Cache analysis results in session state to avoid re-running on each render
+    if "analysis_cache" not in st.session_state or st.session_state.get("analysis_cache_data") != collected:
+        with st.spinner("🔄 Running analysis... This may take a moment."):
+            # Run GAP analysis
+            gap_result = analyze_gaps(collected)
+            gap_summary = generate_gap_summary(gap_result)
+            
+            # Generate color-coded SAP diagram based on gaps
+            sap_gap_diagram = generate_sap_gap_diagram(collected, gap_result)
+            
+            # Run ToC analysis
+            toc_result = analyze_toc(collected)
+            crt_diagram = generate_crt_diagram(toc_result)
+            toc_summary = generate_toc_summary(toc_result)
+            
+            # Cache results
+            st.session_state["analysis_cache"] = {
+                "gap_result": gap_result,
+                "gap_summary": gap_summary,
+                "sap_gap_diagram": sap_gap_diagram,
+                "toc_result": toc_result,
+                "crt_diagram": crt_diagram,
+                "toc_summary": toc_summary
+            }
+            st.session_state["analysis_cache_data"] = collected.copy()
     
-    # Generate color-coded SAP diagram based on gaps
-    sap_gap_diagram = generate_sap_gap_diagram(collected, gap_result)
-    
-    # Run ToC analysis
-    toc_result = analyze_toc(collected)
-    crt_diagram = generate_crt_diagram(toc_result)
-    toc_summary = generate_toc_summary(toc_result)
+    # Use cached results
+    cache = st.session_state["analysis_cache"]
+    gap_result = cache["gap_result"]
+    gap_summary = cache["gap_summary"]
+    sap_gap_diagram = cache["sap_gap_diagram"]
+    toc_result = cache["toc_result"]
+    crt_diagram = cache["crt_diagram"]
+    toc_summary = cache["toc_summary"]
     
     # Create tabs
     tab1, tab2, tab3 = st.tabs(["📊 Process GAP View", "📝 GAP Summary", "🔗 ToC Analysis"])
