@@ -194,17 +194,34 @@ def get_default_toc_analysis(collected_data):
             {"from": "I4", "to": "UDE4"}
         ])
     
-    # If neither, add generic issues
+    # Always add generic issues if no specific ones were identified
     if not analysis["udes"]:
         analysis["udes"].append({
             "id": "UDE1", 
             "label": "Process variability across order channels"
         })
+        analysis["udes"].append({
+            "id": "UDE2", 
+            "label": "Potential for data inconsistencies"
+        })
+        analysis["intermediate_effects"].append({
+            "id": "I1", 
+            "label": "Varying process maturity across channels"
+        })
         analysis["root_causes"].append({
             "id": "RC1", 
             "label": "Multiple intake channels with different workflows"
         })
-        analysis["connections"].append({"from": "RC1", "to": "UDE1"})
+        analysis["root_causes"].append({
+            "id": "RC2", 
+            "label": "Manual touchpoints in order processing"
+        })
+        analysis["connections"].extend([
+            {"from": "RC1", "to": "I1"},
+            {"from": "RC2", "to": "I1"},
+            {"from": "I1", "to": "UDE1"},
+            {"from": "I1", "to": "UDE2"}
+        ])
     
     return analysis
 
@@ -222,10 +239,15 @@ def generate_crt_diagram(toc_analysis):
     if not toc_analysis:
         return None
     
+    # Check if there's actually any content to display
     udes = toc_analysis.get("udes", [])
     intermediate = toc_analysis.get("intermediate_effects", [])
     root_causes = toc_analysis.get("root_causes", [])
     connections = toc_analysis.get("connections", [])
+    
+    # Return None if there's nothing to show
+    if not udes and not root_causes:
+        return None
     
     # Build the Mermaid diagram
     diagram = """graph BT
