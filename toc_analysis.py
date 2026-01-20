@@ -105,7 +105,8 @@ Return ONLY valid JSON with udes, intermediate_effects, root_causes, and connect
             start = response.index("{")
             end = response.rindex("}") + 1
             json_str = response[start:end]
-            return json.loads(json_str)
+            result = json.loads(json_str)
+            return result
     except (json.JSONDecodeError, ValueError) as e:
         print(f"Warning: ToC JSON parse error: {e}")
     

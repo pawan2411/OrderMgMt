@@ -181,12 +181,58 @@ if st.session_state.get("show_diagram", False):
         
         # The CRT diagram
         if crt_diagram:
-            try:
-                stmd.st_mermaid(crt_diagram, height=700)
-            except Exception as e:
-                st.error(f"Failed to render CRT diagram: {e}")
-                with st.expander("Debug: Diagram Code"):
-                    st.code(crt_diagram, language="mermaid")
+            # Show debug expander with diagram code (useful for troubleshooting)
+            with st.expander("🔧 Debug: View Mermaid Code", expanded=False):
+                st.code(crt_diagram, language="mermaid")
+            
+            # Use HTML component with Mermaid.js CDN for reliable rendering
+            import streamlit.components.v1 as components
+            
+            # Escape the diagram for JavaScript
+            escaped_diagram = crt_diagram.replace('\\', '\\\\').replace('`', '\\`').replace('$', '\\$')
+            
+            html_content = f'''
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+                <script>
+                    mermaid.initialize({{ 
+                        startOnLoad: true, 
+                        theme: 'default',
+                        flowchart: {{
+                            useMaxWidth: true,
+                            htmlLabels: true,
+                            curve: 'basis'
+                        }}
+                    }});
+                </script>
+                <style>
+                    body {{
+                        margin: 0;
+                        padding: 10px;
+                        background-color: #f8f9fa;
+                    }}
+                    .mermaid {{
+                        width: 100%;
+                        display: flex;
+                        justify-content: center;
+                    }}
+                    .mermaid svg {{
+                        max-width: 100%;
+                        height: auto;
+                    }}
+                </style>
+            </head>
+            <body>
+                <div class="mermaid">
+{crt_diagram}
+                </div>
+            </body>
+            </html>
+            '''
+            
+            components.html(html_content, height=800, scrolling=True)
         else:
             st.warning("Unable to generate Current Reality Tree. Please complete more of the conversation.")
             # Debug: Show what toc_result contains
