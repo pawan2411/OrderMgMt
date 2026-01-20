@@ -81,8 +81,11 @@ if st.session_state.get("show_diagram", False):
     
     collected = st.session_state.get("order_state", {}).get("collected_data", {})
     
+    # Create a cache key from collected data
+    cache_key = str(sorted(collected.items())) if collected else "empty"
+    
     # Cache analysis results in session state to avoid re-running on each render
-    if "analysis_cache" not in st.session_state or st.session_state.get("analysis_cache_data") != collected:
+    if "analysis_cache" not in st.session_state or st.session_state.get("analysis_cache_key") != cache_key:
         with st.spinner("🔄 Running analysis... This may take a moment."):
             # Run GAP analysis
             gap_result = analyze_gaps(collected)
@@ -105,7 +108,10 @@ if st.session_state.get("show_diagram", False):
                 "crt_diagram": crt_diagram,
                 "toc_summary": toc_summary
             }
-            st.session_state["analysis_cache_data"] = collected.copy()
+            st.session_state["analysis_cache_key"] = cache_key
+            
+            # Force rerun to render with cached data
+            st.rerun()
     
     # Use cached results
     cache = st.session_state["analysis_cache"]
