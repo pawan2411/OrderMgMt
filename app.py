@@ -215,7 +215,15 @@ if st.session_state.get("show_diagram", False):
                 st.code(crt_diagram, language="mermaid")
             
             # Use streamlit-mermaid for reliable rendering on both local and cloud
-            stmd.st_mermaid(crt_diagram, height=500)
+            try:
+                # Add unique key based on diagram content to force re-render
+                import hashlib
+                diagram_key = hashlib.md5(crt_diagram.encode()).hexdigest()[:8]
+                stmd.st_mermaid(crt_diagram, height=500, key=f"crt_{diagram_key}")
+            except Exception as e:
+                st.error(f"Mermaid rendering error: {e}")
+                st.info("Displaying raw diagram code as fallback:")
+                st.code(crt_diagram, language="mermaid")
         else:
             st.warning("Unable to generate Current Reality Tree. Please complete more of the conversation.")
             # Debug: Show what toc_result contains
