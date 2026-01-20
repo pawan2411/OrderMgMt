@@ -76,6 +76,7 @@ st.markdown("I'm a consultant here to understand your end-to-end Order-to-Cash p
 if st.session_state.get("show_diagram", False):
     from sap_gap_diagram import generate_sap_gap_diagram, get_legend
     from gap_analysis import analyze_gaps, generate_gap_summary
+    from toc_analysis import analyze_toc, generate_crt_diagram, generate_toc_summary
     import streamlit_mermaid as stmd
     
     collected = st.session_state.get("order_state", {}).get("collected_data", {})
@@ -87,8 +88,13 @@ if st.session_state.get("show_diagram", False):
     # Generate color-coded SAP diagram based on gaps
     sap_gap_diagram = generate_sap_gap_diagram(collected, gap_result)
     
+    # Run ToC analysis
+    toc_result = analyze_toc(collected)
+    crt_diagram = generate_crt_diagram(toc_result)
+    toc_summary = generate_toc_summary(toc_result)
+    
     # Create tabs
-    tab1, tab2 = st.tabs(["📊 Process GAP View", "📝 GAP Summary"])
+    tab1, tab2, tab3 = st.tabs(["📊 Process GAP View", "📝 GAP Summary", "🔗 ToC Analysis"])
     
     with tab1:
         st.subheader("SAP Standard Process - Color-Coded by As-Is GAPs")
@@ -147,6 +153,42 @@ if st.session_state.get("show_diagram", False):
         
         # GAP Summary
         st.markdown(gap_summary)
+    
+    with tab3:
+        st.subheader("🔗 Theory of Constraints - Current Reality Tree")
+        
+        st.markdown("""
+        The **Current Reality Tree (CRT)** is a Theory of Constraints tool that identifies the 
+        **core problems** in your process by linking visible symptoms (Undesirable Effects) 
+        to their underlying root causes.
+        """)
+        
+        # Legend
+        st.markdown("""
+        **Legend:** 🔴 UDE (Undesirable Effect) | 🔵 Root Cause | ⚪ Intermediate Effect
+        """)
+        
+        # Add CSS for light background diagram container
+        st.markdown("""
+        <style>
+            iframe[title="streamlit_mermaid.st_mermaid"] {
+                background-color: #f8f9fa !important;
+                border-radius: 10px;
+                padding: 10px;
+            }
+        </style>
+        """, unsafe_allow_html=True)
+        
+        # The CRT diagram
+        if crt_diagram:
+            stmd.st_mermaid(crt_diagram, height=700)
+        else:
+            st.warning("Unable to generate Current Reality Tree. Please complete more of the conversation.")
+        
+        st.divider()
+        
+        # ToC Summary
+        st.markdown(toc_summary)
     
     st.divider()
     if st.button("🔙 Back to Chat", use_container_width=True):
