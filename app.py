@@ -181,9 +181,17 @@ if st.session_state.get("show_diagram", False):
         
         # The CRT diagram
         if crt_diagram:
-            stmd.st_mermaid(crt_diagram, height=700)
+            try:
+                stmd.st_mermaid(crt_diagram, height=700)
+            except Exception as e:
+                st.error(f"Failed to render CRT diagram: {e}")
+                with st.expander("Debug: Diagram Code"):
+                    st.code(crt_diagram, language="mermaid")
         else:
             st.warning("Unable to generate Current Reality Tree. Please complete more of the conversation.")
+            # Debug: Show what toc_result contains
+            with st.expander("Debug: ToC Analysis Result"):
+                st.json(toc_result if toc_result else {"error": "No ToC result"})
         
         st.divider()
         

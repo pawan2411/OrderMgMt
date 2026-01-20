@@ -249,6 +249,28 @@ def generate_crt_diagram(toc_analysis):
     if not udes and not root_causes:
         return None
     
+    def sanitize_label(label):
+        """Sanitize label for Mermaid diagram - escape special characters."""
+        if not label:
+            return "Unknown"
+        label = str(label)
+        # Replace characters that break Mermaid syntax
+        label = label.replace('"', "'")
+        label = label.replace('[', '(')
+        label = label.replace(']', ')')
+        label = label.replace('{', '(')
+        label = label.replace('}', ')')
+        label = label.replace('<', 'lt')
+        label = label.replace('>', 'gt')
+        label = label.replace('#', '')
+        label = label.replace('&', 'and')
+        label = label.replace('\n', ' ')
+        label = label.replace('\r', '')
+        # Limit length to prevent overflow
+        if len(label) > 60:
+            label = label[:57] + "..."
+        return label
+    
     # Build the Mermaid diagram
     diagram = """graph BT
     %% Define styles
@@ -261,29 +283,34 @@ def generate_crt_diagram(toc_analysis):
     
     # Add UDE nodes
     for ude in udes:
-        # Escape quotes and special chars in label
-        label = ude["label"].replace('"', "'").replace("[", "(").replace("]", ")")
-        diagram += f'    {ude["id"]}["{ude["id"]}: {label}"]:::ude\n'
+        node_id = ude.get("id", "UDE")
+        label = sanitize_label(ude.get("label", "Undesirable Effect"))
+        diagram += f'    {node_id}["{node_id}: {label}"]:::ude\n'
     
     diagram += "\n    %% --- Intermediate Effects ---\n"
     
     # Add Intermediate Effect nodes
     for ie in intermediate:
-        label = ie["label"].replace('"', "'").replace("[", "(").replace("]", ")")
-        diagram += f'    {ie["id"]}("{label}"):::intermediate\n'
+        node_id = ie.get("id", "I")
+        label = sanitize_label(ie.get("label", "Intermediate Effect"))
+        diagram += f'    {node_id}("{label}"):::intermediate\n'
     
     diagram += "\n    %% --- Root Causes ---\n"
     
     # Add Root Cause nodes
     for rc in root_causes:
-        label = rc["label"].replace('"', "'").replace("[", "(").replace("]", ")")
-        diagram += f'    {rc["id"]}["{rc["id"]}: {label}"]:::rootcause\n'
+        node_id = rc.get("id", "RC")
+        label = sanitize_label(rc.get("label", "Root Cause"))
+        diagram += f'    {node_id}["{node_id}: {label}"]:::rootcause\n'
     
     diagram += "\n    %% --- Causal Connections ---\n"
     
     # Add connections
     for conn in connections:
-        diagram += f'    {conn["from"]} --> {conn["to"]}\n'
+        from_id = conn.get("from", "")
+        to_id = conn.get("to", "")
+        if from_id and to_id:
+            diagram += f'    {from_id} --> {to_id}\n'
     
     return diagram
 
